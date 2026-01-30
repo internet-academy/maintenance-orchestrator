@@ -4,7 +4,7 @@
 # Usage: ./agent-sync.sh [message]
 
 # Target Directory - ADJUST THIS IF NEEDED
-AGENT_DIR="/home/konoh/projects/personal-agents"
+AGENT_DIR="$HOME/projects/personal-agents"
 
 if [ -d "$AGENT_DIR" ]; then
     cd "$AGENT_DIR" || exit
