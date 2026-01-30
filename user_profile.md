@@ -45,3 +45,11 @@
 - **Model Hierarchy:** 
     - Daily Driver: Qwen 2.5 Coder 32B/72B.
     - Architectural Consultant: Llama 3 405B.
+
+## 🔄 SYSTEM CONFIGURATION
+- **Multi-Device Sync:** Active (Git-based).
+    - **Mechanism:** `agent-sync.sh` handles push/pull.
+    - **Triggers:**
+        - **Start:** `gemini` alias in `~/.bashrc` pulls latest memory.
+        - **Update:** `log_keeper.sh` auto-pushes after memory writes.
+        - **Exit:** `gemini` alias triggers final sync on session end.
