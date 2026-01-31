@@ -53,3 +53,15 @@
         - **Start:** `gemini` alias in `~/.bashrc` pulls latest memory.
         - **Update:** `log_keeper.sh` auto-pushes after memory writes.
         - **Exit:** `gemini` alias triggers final sync on session end.
+
+## 🟢 PROJECT: MrClinic (Updates Jan 31, 2026)
+- **Login System:** implemented custom login page with "Dev Bypass" for rapid role switching (Superuser, Doctor, Nurse, Staff, Finance).
+- **Security:** Django 5.0+ requires POST requests for logout;  updated to use hidden form submission.
+- **Local Dev:** Configured  fallback in  for persistence when  is missing.
+- **Tools:** Added  management command to seed role-based accounts (password: ).
+
+## 🟢 PROJECT: MrClinic (Updates Jan 31, 2026)
+- **Login System:** implemented custom login page with "Dev Bypass" for rapid role switching (Superuser, Doctor, Nurse, Staff, Finance).
+- **Security:** Django 5.0+ requires POST requests for logout; `base.html` updated to use hidden form submission.
+- **Local Dev:** Configured `sqlite3` fallback in `settings.py` for persistence when `DATABASE_URL` is missing.
+- **Tools:** Added `create_demo_users` management command to seed role-based accounts (password: `password123`).
