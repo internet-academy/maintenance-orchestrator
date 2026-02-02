@@ -46,6 +46,13 @@
     - Daily Driver: Qwen 2.5 Coder 32B/72B.
     - Architectural Consultant: Llama 3 405B.
 
+## 🟢 PROJECT: Meeting Translator (Completed)
+- **Goal:** Real-time Japanese to English HUD for meetings.
+- **Architecture:** Hybrid. Local Threaded Audio Capture (Python/Tkinter) -> OpenAI Whisper API.
+- **Status:** Version 1.0 packaged (Git initialized).
+- **Key Config:** Uses `.env` for API key; requires `libpulse-dev` on Linux.
+- **Hardware:** Verified on Laptop Mic (RDP Source) + Anker Speaker.
+
 ## 🔄 SYSTEM CONFIGURATION
 - **Multi-Device Sync:** Active (Git-based).
     - **Mechanism:** `agent-sync.sh` handles push/pull.

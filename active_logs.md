@@ -8,3 +8,12 @@ Sat Jan 31 2026: User verified Desktop Sync status. Confirmed successful handsha
 Sat Jan 31 2026: Investigating triple-email issue. Suspected sources: Live Server, Old Test Server, and New Test Server (or duplicate config). Plan: Audit cronjobs on all environments.
 
 Session finalized. Logs consolidated.
+Feb 2, 2026: Started Meeting Translator project. Setup Python venv but hit a blocker with missing libpulse.so. Advised user to install libpulse-dev.
+Feb 2, 2026: User attempted local transcription (small model) on laptop CPU. Latency lag (24 chunks / 120s) and poor quality (low confidence) confirmed CPU cannot handle it. Decision: Pivot to OpenAI Whisper API.
+Feb 2, 2026: Completed 'Meeting Translator' project.
+- **Challenge:** Real-time Japanese->English meeting HUD on a laptop (No NVidia GPU).
+- **Lessons Learned:** 
+    1. **CPU Limit:** Local  (Small) on CPU lags significantly (120s+ delay) in real-time loops.
+    2. **Silence:** Whisper hallucinations on silence are severe; implemented RMS Energy Threshold to fix.
+    3. **Solution:** Pivoted to Hybrid Architecture (Local Capture + OpenAI API) for perfect quality/latency.
+- **Outcome:** Delivered threaded Tkinter HUD () with 'Always-on-Top' overlay.
