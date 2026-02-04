@@ -17,3 +17,7 @@ Feb 2, 2026: Completed 'Meeting Translator' project.
     2. **Silence:** Whisper hallucinations on silence are severe; implemented RMS Energy Threshold to fix.
     3. **Solution:** Pivoted to Hybrid Architecture (Local Capture + OpenAI API) for perfect quality/latency.
 - **Outcome:** Delivered threaded Tkinter HUD () with 'Always-on-Top' overlay.
+Feb 4, 2026: Working on Bohr Individual project.
+- Investigated file upload issue: identified form key mismatch ('file_upload' vs 'file') and backend omissions (preview_file, WebsiteURL).
+- Implemented standardized download logic in BenefitApplicationStatus.vue for both PC and Mobile views.
+Feb 4, 2026: Bohr app email issue (Postfix SSL/OpenSSL mismatch) on New Test Server (52.197.181.101) was resolved by the user.

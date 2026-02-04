@@ -53,6 +53,11 @@
 - **Key Config:** Uses `.env` for API key; requires `libpulse-dev` on Linux.
 - **Hardware:** Verified on Laptop Mic (RDP Source) + Anker Speaker.
 
+## 🟢 PROJECT: Bohr Individual (Active)
+- **Architecture:** Monolith (Go/Fiber) + SPA (Vue 3/Vite).
+- **External Dependency:** Django service for file management.
+- **Status:** Investigating file upload issues and enhancing UI consistency.
+
 ## 🔄 SYSTEM CONFIGURATION
 - **Multi-Device Sync:** Active (Git-based).
     - **Mechanism:** `agent-sync.sh` handles push/pull.
