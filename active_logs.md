@@ -21,3 +21,7 @@ Feb 4, 2026: Working on Bohr Individual project.
 - Investigated file upload issue: identified form key mismatch ('file_upload' vs 'file') and backend omissions (preview_file, WebsiteURL).
 - Implemented standardized download logic in BenefitApplicationStatus.vue for both PC and Mobile views.
 Feb 4, 2026: Bohr app email issue (Postfix SSL/OpenSSL mismatch) on New Test Server (52.197.181.101) was resolved by the user.
+Completed formatting updates on /benefit/other-application: Added flex layout for long course names, implemented hover effects using ButtonComponent, and fixed the download icon.
+Pushed styling fixes for /benefit/other-application to origin/y_choo.
+Updated /benefit/application-status to only show download button when status is 'finished', otherwise displaying '-'.
+Added p-2 padding to download button on /benefit/other-application to match /study-tools/materials styling.
