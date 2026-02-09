@@ -25,3 +25,24 @@ Completed formatting updates on /benefit/other-application: Added flex layout fo
 Pushed styling fixes for /benefit/other-application to origin/y_choo.
 Updated /benefit/application-status to only show download button when status is 'finished', otherwise displaying '-'.
 Added p-2 padding to download button on /benefit/other-application to match /study-tools/materials styling.
+Feb 6, 2026: Resolved Enrollment Certificate download issue in Bohr Individual.
+- Problem: 404/Not Found on certificate download due to reactive flow and short_name mismatch.
+- Solution: Implemented proactive PDF generation. Go backend now calls Django DocumentEnrollView on page load.
+- Django Fix: Updated bohr_api/views.py to use correct short_name ('certificate_of_enrollment_no_seal') and added contract_id to DocumentApplySerializer.
+- Go Fix: Filtered out auto-generated certificates from GetMyBenefitApplications to keep status list clean.
+- Workflow Rule: Pushed bohr-individual changes to master; pushed member (Django) changes to feature branch for PR against test_restore.
+## 🟢 PROJECT: Bohr Individual (Update Feb 6, 2026)
+- **Enrollment Certificate ID:** 'certificate_of_enrollment_no_seal' (Use this instead of 'enrollment').
+- **Django Integration:** Certificates should be fetched/generated proactively on page load via `bohr_api/doc/enroll/`.
+- **Git Protocol:** 
+    - bohr-individual: Always push to `master` (per user instruction Feb 6).
+    - member (Django): Push to feature branch, PR against `test_restore`.
+Feb 6, 2026: Styled specific text in certification exam registration popup.
+- Task: Highlight 'サーティファイでの無料登録' with bold, red-500, and underline in the smartphone popup.
+- Solution: Updated DataCheckPopup.vue to use v-html for alertBoxContents.
+- Refinement: Ensured original font size and line-height were preserved by keeping the text within the existing <li> structure and removing temporary text-xs classes.
+- Branching: Created feat/fix-exam-popup-style for PR against master.
+## 🟢 PROJECT: Bohr Individual (Update Feb 6, 2026 - Styling)
+- **UI Component Usage:** DataCheckPopup.vue now supports HTML in alertBoxContents via v-html.
+- **Styling Convention:** For specific text highlights within lists, use inline spans with Tailwind classes while maintaining the parent <li> structure to preserve layout consistency.
+Feb 6, 2026: Assisted user in locating and viewing Django response debug logs. Found the logs in the 'bohr-backend' Go service via journalctl after initial search in Django/Gunicorn logs. User confirmed the issue was resolved based on the log output.
