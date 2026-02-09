@@ -46,3 +46,10 @@ Feb 6, 2026: Styled specific text in certification exam registration popup.
 - **UI Component Usage:** DataCheckPopup.vue now supports HTML in alertBoxContents via v-html.
 - **Styling Convention:** For specific text highlights within lists, use inline spans with Tailwind classes while maintaining the parent <li> structure to preserve layout consistency.
 Feb 6, 2026: Assisted user in locating and viewing Django response debug logs. Found the logs in the 'bohr-backend' Go service via journalctl after initial search in Django/Gunicorn logs. User confirmed the issue was resolved based on the log output.
+Feb 9, 2026: User reported trouble connecting Zoom audio to live_gui.py despite using a hardware splitter. Investigating device selection in list_devices.py and physical connection details.
+Feb 9, 2026: Identified that WSLg audio server is hanging, causing live_gui.py to freeze. Recommended wsl --shutdown and suggested running the app natively on Windows for better stability with hardware splitters.
+Feb 9, 2026: Confirmed audio volume from hardware splitter via check_levels.py. Updated live_gui.py to auto-prioritize RDPSource for the user. Verified API keys. Ready for live test.
+Feb 9, 2026: Hardware splitter integration verified. RDPSource confirmed as the bridge between Windows/Zoom and WSL. live_gui.py updated and ready for use.
+Feb 9, 2026: Added extensive debug logging to live_gui.py to diagnose why transcription isn't triggering despite audio volume presence.
+Feb 9, 2026: Reverted to Deepgram at user request. Added GAIN_BOOST to address suspected low Zoom volume. Refined streaming implementation.
+Feb 9, 2026: Added real-time peak amplitude monitoring to live_gui.py. Increased gain to 5.0x. This will help determine if Zoom audio is reaching the processing loop with sufficient volume.
