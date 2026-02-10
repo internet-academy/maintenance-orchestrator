@@ -53,3 +53,7 @@ Feb 9, 2026: Hardware splitter integration verified. RDPSource confirmed as the 
 Feb 9, 2026: Added extensive debug logging to live_gui.py to diagnose why transcription isn't triggering despite audio volume presence.
 Feb 9, 2026: Reverted to Deepgram at user request. Added GAIN_BOOST to address suspected low Zoom volume. Refined streaming implementation.
 Feb 9, 2026: Added real-time peak amplitude monitoring to live_gui.py. Increased gain to 5.0x. This will help determine if Zoom audio is reaching the processing loop with sufficient volume.
+Feb 9, 2026: Resolved enrollment certificate association issue. Backend now proactively creates DocumentApply records for certificates fetched from Django. Added LoadingSpinner to frontend and updated download logic to use authenticated Go proxy.
+Feb 10, 2026: Implemented IP restriction for BOHR-Corp. Updated models.py for robust IP checking and added IsIPAllowed permission to all bohr_corp views. Restricted Login and SignUp endpoints by IP.
+Feb 10, 2026: Updated IP restriction logic to exempt instructors and staff users. Corporate trainees and admins remain restricted.
+Feb 10, 2026: Pushed IP restriction implementation to new branch 'feature/ip-restriction-bohr-corp' and prepared for PR.
