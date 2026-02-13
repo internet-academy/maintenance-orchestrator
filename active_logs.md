@@ -57,3 +57,17 @@ Feb 9, 2026: Resolved enrollment certificate association issue. Backend now proa
 Feb 10, 2026: Implemented IP restriction for BOHR-Corp. Updated models.py for robust IP checking and added IsIPAllowed permission to all bohr_corp views. Restricted Login and SignUp endpoints by IP.
 Feb 10, 2026: Updated IP restriction logic to exempt instructors and staff users. Corporate trainees and admins remain restricted.
 Feb 10, 2026: Pushed IP restriction implementation to new branch 'feature/ip-restriction-bohr-corp' and prepared for PR.
+Feb 13, 2026: Enhanced Bohr Individual notification management.
+- Added title and close button to detail popup.
+- Standardized table styles and column widths for 1080p compatibility.
+- Implemented cell-level error highlighting with red border and background.
+- Fixed timezone issues (Asia/Tokyo) for scheduling and display.
+- Added PDF upload support to Notification model and form.
+- Improved preview popup size and scrollability.
+- Added validation to ensure at least one audience is selected.
+- Mapped internal variable names to human-readable labels in error messages.
+- Fixed TemplateSyntaxError by using direct if-logic instead of complex with-blocks.
+- Pushed changes to branch y_choo_7 on origin.
+Checked Nginx max upload size on 52.197.181.101: Global default is 20M, but www.internetacademy.jp is 256M, while others are 16M.
+Migrated Bohr backend to port 3001: Updated main.go to use PORT env, updated .env, rebuilt binary, and updated Nginx proxy_pass. Port 3000 is now free.
+Installed NVM and Node.js v20.2.0 on live server (54.250.128.150) for ia_admin user. Installation is isolated to home directory.
