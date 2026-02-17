@@ -75,3 +75,4 @@ User (EM) inquiring about Rakuten-style agentic management workflows. Architect 
 User provided detailed workflow for automation (Google Sheets/Chat -> Backlog -> GitHub). Architect is designing a 4-trigger automation system. Requested stack details (Backlog tool, Repo host, Load tracking).
 Confirmed stack: Backlog (Nulab), GitHub, Google Sheets/Chat. Architect created 'architect/workflow_blueprint.md'. Next step: Prototype the Backlog API connector for workload calculation.
 Adopted Multi-Agent Architecture: Ingestor, Load Balancer, Communicator, Sync Agent, and Janitor. Updated 'architect/workflow_blueprint.md'. Ready to begin module implementation.
+Feb 17, 2026: Configured Gemini Auto-Sync systemd service. Created ~/.config/systemd/user/gemini-sync.service to run watcher.sh as a background user service.
