@@ -76,3 +76,9 @@ User provided detailed workflow for automation (Google Sheets/Chat -> Backlog ->
 Confirmed stack: Backlog (Nulab), GitHub, Google Sheets/Chat. Architect created 'architect/workflow_blueprint.md'. Next step: Prototype the Backlog API connector for workload calculation.
 Adopted Multi-Agent Architecture: Ingestor, Load Balancer, Communicator, Sync Agent, and Janitor. Updated 'architect/workflow_blueprint.md'. Ready to begin module implementation.
 Feb 17, 2026: Configured Gemini Auto-Sync systemd service. Created ~/.config/systemd/user/gemini-sync.service to run watcher.sh as a background user service.
+Feb 17, 2026: Finalized Gemini Auto-Sync Infrastructure.
+- **Service:** Installed 'gemini-sync.service' as a systemd user unit.
+- **Pathing Fix:** Resolved path ambiguity by standardizing on '/home/min/personal-projects/personal-agents/'. Updated 'GEMINI.md' and created a symlink from '~/projects/' to ensure CLI memory consistency.
+- **Responsiveness:** Optimized 'watcher.sh' to trigger on git branch updates (refs/heads) and reduced debounce to 10s.
+- **Robustness:** Updated 'sync-all.sh' to skip repos with active conflicts/rebases and to pull from the current local branch instead of assuming master.
+- **Lesson Learned:** Use '--exclude' in inotifywait carefully; watching '.git/refs/heads/' is the most efficient way to detect manual commits for auto-pushing without 'Live Mode'.
