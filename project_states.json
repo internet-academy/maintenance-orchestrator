@@ -1,10 +1,15 @@
 {
-  "personal-agents": { "path": "/home/min/personal-projects/personal-agents", "branch": "main", "status": "dirty", "last_commit": "Auto-sync: 2026-02-18 08:45:57", "updated": "2026-02-17T23:46:44Z" },
-  "wiki": { "path": "/home/min/ia/wiki", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:46", "updated": "2026-02-17T23:46:46Z" },
-  "BOHR-web": { "path": "/home/min/ia/BOHR-web", "branch": "main", "status": "dirty", "last_commit": "Merge pull request #293 from internet-academy/saurabh/SD-1194", "updated": "2026-02-17T23:46:47Z" },
-  "ia-advent-of-code": { "path": "/home/min/ia/ia-advent-of-code", "branch": "master", "status": "dirty", "last_commit": "added choo file", "updated": "2026-02-17T23:46:48Z" },
-  "member": { "path": "/home/min/ia/member", "branch": "live_server", "status": "clean", "last_commit": "Merge branch 'master' of https://github.com/internet-academy/member into live_server", "updated": "2026-02-17T23:46:49Z" },
-  "docs": { "path": "/home/min/ia/docs", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:57", "updated": "2026-02-17T23:46:50Z" },
-  "BOHR-Corp": { "path": "/home/min/ia/BOHR-Corp", "branch": "backup", "status": "clean", "last_commit": "replacing a tag with router link", "updated": "2026-02-17T23:46:50Z" },
-  "bohr-individual": { "path": "/home/min/ia/bohr-individual", "branch": "test_server", "status": "clean", "last_commit": "Merge pull request #393 from internet-academy/raman/toppagefixes", "updated": "2026-02-17T23:46:51Z" }
+  "date-idea-app": { "path": "/home/min/projects/date-idea-app", "branch": "main", "status": "clean", "last_commit": "�️ Remove empty vercel.json causing deployment error", "updated": "2026-02-17T23:50:41Z" },
+  "meeting-translator": { "path": "/home/min/projects/meeting-translator", "branch": "main", "status": "dirty", "last_commit": "Initial commit: Meeting Translator HUD v1.0", "updated": "2026-02-17T23:50:42Z" },
+  "mrclinic": { "path": "/home/min/projects/mrclinic", "branch": "master", "status": "clean", "last_commit": "fix: use POST for logout to prevent 405 error", "updated": "2026-02-17T23:50:42Z" },
+  "personal-agents.BAK": { "path": "/home/min/projects/personal-agents.BAK", "branch": "main", "status": "dirty", "last_commit": "Session End Sync", "updated": "2026-02-17T23:50:43Z" },
+  "personal-agents": { "path": "/home/min/projects/personal-agents", "branch": "main", "status": "dirty", "last_commit": "Auto-sync: 2026-02-18 08:46:45", "updated": "2026-02-17T23:50:46Z" },
+  "consultiva-platform": { "path": "/home/min/projects/consultiva-platform", "branch": "main", "status": "clean", "last_commit": "docs: Finalized Phase 2 and updated Phase 3 roadmap in GEMINI.md", "updated": "2026-02-17T23:50:48Z" },
+  "wiki": { "path": "/home/min/ia/wiki", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:46", "updated": "2026-02-17T23:50:49Z" },
+  "BOHR-web": { "path": "/home/min/ia/BOHR-web", "branch": "main", "status": "dirty", "last_commit": "Merge pull request #293 from internet-academy/saurabh/SD-1194", "updated": "2026-02-17T23:50:50Z" },
+  "ia-advent-of-code": { "path": "/home/min/ia/ia-advent-of-code", "branch": "master", "status": "dirty", "last_commit": "added choo file", "updated": "2026-02-17T23:50:51Z" },
+  "member": { "path": "/home/min/ia/member", "branch": "live_server", "status": "clean", "last_commit": "Merge branch 'master' of https://github.com/internet-academy/member into live_server", "updated": "2026-02-17T23:50:52Z" },
+  "docs": { "path": "/home/min/ia/docs", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:57", "updated": "2026-02-17T23:50:53Z" },
+  "BOHR-Corp": { "path": "/home/min/ia/BOHR-Corp", "branch": "backup", "status": "clean", "last_commit": "replacing a tag with router link", "updated": "2026-02-17T23:50:54Z" },
+  "bohr-individual": { "path": "/home/min/ia/bohr-individual", "branch": "test_server", "status": "clean", "last_commit": "Merge pull request #393 from internet-academy/raman/toppagefixes", "updated": "2026-02-17T23:50:55Z" }
 }
