@@ -43,6 +43,34 @@ class LoadBalancer:
             "remaining_capacity": self.DAILY_LIMIT_HOURS - current_load
         }
 
+    def create_backlog_issue(self, user_id, task_data):
+        """
+        Creates a new issue in Backlog.
+        """
+        endpoint = f"{self.base_url}/issues"
+        
+        # Mapping the Ingestor's task data to Backlog's API fields
+        payload = {
+            "apiKey": self.api_key,
+            "projectId": self._get_project_id(), # We need to define which project this goes to
+            "summary": f"[ERROR] {task_data['requester']} - {task_data['date']}",
+            "description": f"Page: {task_data.get('page_url', 'N/A')}\n\nContent:\n{task_data['content']}\n\nChat URL: {task_data.get('chat_url', 'N/A')}",
+            "issueTypeId": 1, # Usually 'Bug' or 'Task' - check your project settings
+            "priorityId": 3,  # Normal
+            "assigneeId": user_id,
+            "estimatedHours": task_data['estimated_hours'],
+            "dueDate": task_data.get('deadline', '')
+        }
+        
+        response = requests.post(endpoint, data=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def _get_project_id(self):
+        # You'll need the numeric ID of your Backlog Project
+        # You can find this in your Project Settings or I can help you find it.
+        return os.getenv('BACKLOG_PROJECT_ID', '12345')
+
 # --- Example Usage (Mocked) ---
 if __name__ == "__main__":
     # These would be your environment variables
