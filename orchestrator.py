@@ -1,16 +1,22 @@
 import os
 import json
-from parsers.error_report_parser import ErrorReportParser
+from agents.cloud_ingestor import CloudIngestor
 from agents.load_balancer import LoadBalancer
+from datetime import datetime
 
 class Orchestrator:
-    def __init__(self, config):
-        self.config = config
-        self.parser = ErrorReportParser(config['CSV_DIR'])
-        self.load_balancer = LoadBalancer(config['BACKLOG_API_KEY'], config['BACKLOG_SPACE_ID'])
+    def __init__(self):
+        # Load from Environment Variables (set by GitHub Secrets)
+        self.google_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+        self.sheet_id = os.getenv('GOOGLE_SHEET_ID')
+        self.backlog_key = os.getenv('BACKLOG_API_KEY')
+        self.space_id = os.getenv('BACKLOG_SPACE_ID')
+
+        self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
+        self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
         
-        # Mapping developer names to their Backlog User IDs
-        # In a real setup, these would be in a config file or environment variables
+        # Confirmed Developer Mapping
+        # TODO: Replace these placeholder IDs with real Backlog User IDs
         self.developer_map = {
             "Saurabh": 101,
             "Raman": 102,
@@ -18,62 +24,53 @@ class Orchestrator:
             "Choo": 104
         }
 
-    def process_new_tasks(self):
-        """Main loop to parse, check load, and assign tasks."""
-        latest_file = self.parser.get_latest_file()
-        if not latest_file:
-            print("No new CSV file found to process.")
+    def run(self):
+        print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+        
+        try:
+            tasks = self.ingestor.get_live_tasks()
+            print(f"Found {len(tasks)} valid tasks in Google Sheets.")
+
+            for task in tasks:
+                self.process_task(task)
+
+        except Exception as e:
+            print(f"CRITICAL ERROR: {str(e)}")
+
+    def process_task(self, task):
+        # If already assigned in sheet, we skip auto-assignment logic
+        if task.get('pic'):
+            print(f"SKIP: Task {task['id']} already has PIC: {task['pic']}")
             return
 
-        tasks = self.parser.parse_file(latest_file)
-        print(f"--- Processing {len(tasks)} tasks from {os.path.basename(latest_file)} ---
-")
+        # Attempt Auto-Assignment
+        best_dev = self._find_best_dev(task['estimated_hours'])
+        
+        if best_dev:
+            print(f"ASSIGNING: Task {task['id']} ({task['estimated_hours']}h) -> {best_dev['name']}")
+            # PRODUCTION CALL:
+            # self.load_balancer.create_backlog_issue(best_dev['id'], task)
+        else:
+            print(f"OVERLOAD: No capacity for Task {task['id']} ({task['estimated_hours']}h) today.")
 
-        for task in tasks:
-            # Step 1: Check if task already has a PIC assigned in the sheet
-            assigned_pic = task.get('pic')
-            
-            if not assigned_pic:
-                # Step 2: Auto-assign logic
-                best_match = self._find_available_developer(task['estimated_hours'])
-                
-                if best_match:
-                    print(f"MATCH: Task ID {task['id']} ({task['estimated_hours']}h) -> Assigned to {best_match['name']}")
-                    print(f"       New Projected Load: {best_match['projected_load']}h
-")
-                    # In production: self.load_balancer.assign_task(best_match['id'], task)
-                else:
-                    print(f"ALERT: Task ID {task['id']} ({task['estimated_hours']}h) - NO DEVELOPER HAS CAPACITY TODAY.
-")
-            else:
-                print(f"SKIP: Task ID {task['id']} already assigned to {assigned_pic}.
-")
-
-    def _find_available_developer(self, task_hours):
-        """Iterates through developers to find one who can take the load."""
+    def _find_best_dev(self, hours):
+        """Finds the dev with the lowest current load who is under the 6h limit."""
+        options = []
         for name, dev_id in self.developer_map.items():
-            # Real call to Backlog API (Mocked in this prototype)
-            # result = self.load_balancer.can_assign_task(dev_id, task_hours)
-            
-            # MOCK LOGIC: Simulating a 4-hour current load for testing
-            mock_current_load = 4.0 
-            projected_load = mock_current_load + task_hours
-            
-            if projected_load <= 6.0:
-                return {
-                    "name": name,
-                    "id": dev_id,
-                    "projected_load": projected_load
-                }
+            # In production, this calls the real Backlog API
+            status = self.load_balancer.can_assign_task(dev_id, hours)
+            if status['can_accept']:
+                options.append({
+                    "name": name, 
+                    "id": dev_id, 
+                    "load": status['current_load']
+                })
+        
+        # Sort by current load (ascending) to balance the team
+        if options:
+            return sorted(options, key=lambda x: x['load'])[0]
         return None
 
 if __name__ == "__main__":
-    # Configuration (Placeholders)
-    CONFIG = {
-        "CSV_DIR": "/home/min/ia/mini-projects",
-        "BACKLOG_API_KEY": "PLACEHOLDER_KEY",
-        "BACKLOG_SPACE_ID": "PLACEHOLDER_SPACE"
-    }
-
-    orchestrator = Orchestrator(CONFIG)
-    orchestrator.process_new_tasks()
+    manager = Orchestrator()
+    manager.run()
