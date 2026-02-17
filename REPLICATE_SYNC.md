@@ -34,7 +34,7 @@ Description=Gemini Auto-Sync Service
 After=network.target
 
 [Service]
-ExecStart=/home/min/personal-projects/watcher.sh
+ExecStart=/home/min/projects/watcher.sh
 Restart=always
 RestartSec=10
 
