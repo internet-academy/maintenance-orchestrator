@@ -71,3 +71,7 @@ Feb 13, 2026: Enhanced Bohr Individual notification management.
 Checked Nginx max upload size on 52.197.181.101: Global default is 20M, but www.internetacademy.jp is 256M, while others are 16M.
 Migrated Bohr backend to port 3001: Updated main.go to use PORT env, updated .env, rebuilt binary, and updated Nginx proxy_pass. Port 3000 is now free.
 Installed NVM and Node.js v20.2.0 on live server (54.250.128.150) for ia_admin user. Installation is isolated to home directory.
+User (EM) inquiring about Rakuten-style agentic management workflows. Architect persona adopted. Proposed architectural breakdown: Orchestration, Distribution, and Validation layers.
+User provided detailed workflow for automation (Google Sheets/Chat -> Backlog -> GitHub). Architect is designing a 4-trigger automation system. Requested stack details (Backlog tool, Repo host, Load tracking).
+Confirmed stack: Backlog (Nulab), GitHub, Google Sheets/Chat. Architect created 'architect/workflow_blueprint.md'. Next step: Prototype the Backlog API connector for workload calculation.
+Adopted Multi-Agent Architecture: Ingestor, Load Balancer, Communicator, Sync Agent, and Janitor. Updated 'architect/workflow_blueprint.md'. Ready to begin module implementation.
