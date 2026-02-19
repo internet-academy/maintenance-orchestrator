@@ -23,8 +23,7 @@ def run_e2e_dry_test():
     # 3. Execute
     orchestrator.run()
     
-    print("
---- E2E Dry Run Test Complete ---")
+    print("\n--- E2E Dry Run Test Complete ---")
 
 if __name__ == "__main__":
     run_e2e_dry_test()
