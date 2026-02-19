@@ -38,18 +38,37 @@ class Orchestrator:
             print(f"CRITICAL ERROR: {str(e)}")
 
     def process_task(self, task):
-        # If already assigned in sheet, we skip auto-assignment logic
+        # 1. Update Detection Logic
+        backlog_id = task.get('backlog_id')
+        if backlog_id:
+            print(f"UPDATE: Found existing Backlog ID {backlog_id}. Updating fields...")
+            try:
+                self.load_balancer.update_backlog_issue(backlog_id, task)
+                print(f"SUCCESS: Updated Backlog {backlog_id}")
+            except Exception as e:
+                print(f"ERROR: Failed to update {backlog_id}: {str(e)}")
+            return
+
+        # 2. Skip if already assigned in sheet (Legacy check)
         if task.get('pic'):
             print(f"SKIP: Task {task['id']} already has PIC: {task['pic']}")
             return
 
-        # Attempt Auto-Assignment
+        # 3. New Task Assignment Logic
         best_dev = self._find_best_dev(task['estimated_hours'])
         
         if best_dev:
             print(f"ASSIGNING: Task {task['id']} ({task['estimated_hours']}h) -> {best_dev['name']}")
-            # PRODUCTION CALL:
-            # self.load_balancer.create_backlog_issue(best_dev['id'], task)
+            try:
+                issue = self.load_balancer.create_backlog_issue(best_dev['id'], task)
+                issue_key = issue['issueKey']
+                print(f"CREATED: Backlog Issue {issue_key}")
+                
+                # Write back to Sheet
+                self.ingestor.write_backlog_id(task['row_index'], issue_key)
+                print(f"SYNC: Wrote {issue_key} back to Google Sheet row {task['row_index']}")
+            except Exception as e:
+                print(f"ERROR: Failed to create issue for task {task['id']}: {str(e)}")
         else:
             print(f"OVERLOAD: No capacity for Task {task['id']} ({task['estimated_hours']}h) today.")
 

@@ -3,11 +3,14 @@ from oauth2client.service_account import ServiceAccountCredentials
 import json
 import os
 import re
+from datetime import datetime
 
 class CloudIngestor:
     def __init__(self, service_account_json_str, sheet_id):
         # Authenticate with Google
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        if not service_account_json_str:
+            raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing")
         creds_dict = json.loads(service_account_json_str)
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         self.client = gspread.authorize(creds)
@@ -16,23 +19,21 @@ class CloudIngestor:
     def get_current_month_worksheet(self):
         """Finds the tab matching the YYMM pattern (e.g., エラー報告_2602)."""
         workbook = self.client.open_by_key(self.sheet_id)
-        # Assuming we want the tab that contains current month/year pattern
         target_pattern = datetime.now().strftime("%y%m")
         for sheet in workbook.worksheets():
             if target_pattern in sheet.title:
                 return sheet
-        return workbook.get_worksheet(0) # Fallback to first tab
+        return workbook.get_worksheet(0)
 
     def get_live_tasks(self):
         """Reads the worksheet and uses our block-parsing logic."""
         worksheet = self.get_current_month_worksheet()
         all_data = worksheet.get_all_values()
         
-        # We reuse the logic from our ErrorReportParser but on list of lists
         tasks = []
         for i, row in enumerate(all_data):
+            # Check if row starts with a number (Task ID)
             if row and row[0].isdigit():
-                # Logic to extract data from the row blocks (same as CSV parser)
                 task = self._parse_block_from_list(all_data, i)
                 if task and self._is_valid(task):
                     tasks.append(task)
@@ -41,21 +42,24 @@ class CloudIngestor:
     def write_backlog_id(self, row_index, issue_key):
         """Writes the Backlog ID to the 10th column (J) of the sheet."""
         worksheet = self.get_current_month_worksheet()
-        # Row index in gspread is 1-based. If start_index was 0-based from list, 
-        # we need to adjust.
+        # gspread uses 1-based indexing
         worksheet.update_cell(row_index + 1, 10, issue_key)
 
     def _is_valid(self, task):
-        # Same logic: Filter 2025 and placeholders
         return "2025" not in task['date'] and task['requester'] != ""
 
     def _parse_block_from_list(self, data, start_index):
-        # Implementation of the block extraction logic from previous parser
-        # ... (Simplified for brevity in this prototype)
+        row = data[start_index]
+        # Content is usually 2 rows below the header in your block format
+        content_row = data[start_index + 2] if (start_index + 2) < len(data) else [""] * 10
+        
         return {
-            "id": data[start_index][0],
-            "requester": data[start_index][3],
-            "date": data[start_index][4],
-            "content": data[start_index + 2][3],
-            "estimated_hours": 1.0 # Default fallback
+            "row_index": start_index,
+            "id": row[0],
+            "requester": row[3],
+            "date": row[4],
+            "content": content_row[3] if len(content_row) > 3 else "",
+            "estimated_hours": float(row[11]) if len(row) > 11 and row[11] else 1.0,
+            "backlog_id": row[9] if len(row) > 9 else None, # Column J
+            "pic": row[10] if len(row) > 10 else None # Column K
         }
