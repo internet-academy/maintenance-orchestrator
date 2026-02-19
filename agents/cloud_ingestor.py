@@ -9,12 +9,23 @@ class CloudIngestor:
     def __init__(self, service_account_json_str, sheet_id):
         # Authenticate with Google
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        
         if not service_account_json_str:
-            raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing")
-        creds_dict = json.loads(service_account_json_str)
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-        self.client = gspread.authorize(creds)
-        self.sheet_id = sheet_id
+            raise ValueError("ERROR: GOOGLE_SERVICE_ACCOUNT_JSON is empty or missing from environment.")
+            
+        try:
+            # For debugging (Sentry approved: only length and first chars)
+            print(f"DEBUG: Service Account JSON string length: {len(service_account_json_str)}")
+            print(f"DEBUG: Start of string: {service_account_json_str[:10]}...")
+            
+            creds_dict = json.loads(service_account_json_str)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            self.client = gspread.authorize(creds)
+            self.sheet_id = sheet_id
+        except json.JSONDecodeError as e:
+            print(f"CRITICAL: Failed to decode GOOGLE_SERVICE_ACCOUNT_JSON. Ensure it is a valid JSON string.")
+            print(f"Error Detail: {str(e)}")
+            raise
 
     def get_current_month_worksheet(self):
         """Finds the tab matching the YYMM pattern (e.g., エラー報告_2602)."""
