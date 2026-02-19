@@ -27,6 +27,7 @@ def test_connection():
             response.raise_for_status()
             project = response.json()
             print(f"SUCCESS: Accessed Project '{project['name']}' ({project['id']})")
+            pid = project['id'] # Use the numeric ID
         else:
             # If no project_id, just list projects
             endpoint = f"{base_url}/projects"
@@ -37,11 +38,10 @@ def test_connection():
             print(f"SUCCESS: Connected. Found {len(projects)} projects.")
             if projects:
                 print(f"Example Project: {projects[0]['name']} (ID: {projects[0]['id']})")
+                pid = projects[0]['id']
 
         # 2. Test Issue Retrieval & Load Calculation
         print("\n--- Testing Load Calculation ---")
-        # For testing, we'll look for issues in the first project found or the specified one
-        pid = project_id or (projects[0]['id'] if projects else None)
         if pid:
             endpoint = f"{base_url}/issues"
             params = {
