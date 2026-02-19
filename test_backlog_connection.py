@@ -57,10 +57,14 @@ def test_connection():
             print(f"Found {len(issues)} active issues.")
             total_hours = 0
             for issue in issues:
-                est = issue.get("estimatedHours")
-                if est is None:
-                    est = 0
-                total_hours += float(est)
+                est_raw = issue.get("estimatedHours")
+                try:
+                    est = float(est_raw) if est_raw is not None else 0.0
+                except (ValueError, TypeError):
+                    print(f"  ! Warning: Invalid estimate '{est_raw}' for issue {issue['issueKey']}. Defaulting to 0.")
+                    est = 0.0
+                
+                total_hours += est
                 print(f"- Issue {issue['issueKey']}: {est} hours")
             
             print(f"
