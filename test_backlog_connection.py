@@ -66,8 +66,7 @@ def test_connection():
                 total_hours += est
                 print(f"- Issue {issue['issueKey']}: {est} hours")
             
-            print(f"
-TOTAL CALCULATED LOAD: {total_hours} hours")
+            print(f"\nTOTAL CALCULATED LOAD: {total_hours} hours")
 
     except requests.exceptions.HTTPError as e:
         print(f"HTTP ERROR: {e}")
