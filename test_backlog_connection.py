@@ -39,8 +39,7 @@ def test_connection():
                 print(f"Example Project: {projects[0]['name']} (ID: {projects[0]['id']})")
 
         # 2. Test Issue Retrieval & Load Calculation
-        print("
---- Testing Load Calculation ---")
+        print("\n--- Testing Load Calculation ---")
         # For testing, we'll look for issues in the first project found or the specified one
         pid = project_id or (projects[0]['id'] if projects else None)
         if pid:
