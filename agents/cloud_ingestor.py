@@ -38,6 +38,13 @@ class CloudIngestor:
                     tasks.append(task)
         return tasks
 
+    def write_backlog_id(self, row_index, issue_key):
+        """Writes the Backlog ID to the 10th column (J) of the sheet."""
+        worksheet = self.get_current_month_worksheet()
+        # Row index in gspread is 1-based. If start_index was 0-based from list, 
+        # we need to adjust.
+        worksheet.update_cell(row_index + 1, 10, issue_key)
+
     def _is_valid(self, task):
         # Same logic: Filter 2025 and placeholders
         return "2025" not in task['date'] and task['requester'] != ""
