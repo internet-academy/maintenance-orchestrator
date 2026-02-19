@@ -1,15 +1,15 @@
 {
-  "date-idea-app": { "path": "/home/min/projects/date-idea-app", "branch": "main", "status": "dirty", "last_commit": "�️ Remove empty vercel.json causing deployment error", "updated": "2026-02-19T23:52:36Z" },
-  "meeting-translator": { "path": "/home/min/projects/meeting-translator", "branch": "main", "status": "dirty", "last_commit": "Initial commit: Meeting Translator HUD v1.0", "updated": "2026-02-19T23:52:36Z" },
-  "mrclinic": { "path": "/home/min/projects/mrclinic", "branch": "master", "status": "dirty", "last_commit": "Fix setup command: Ensure groups are created before assignment", "updated": "2026-02-19T23:52:37Z" },
-  "personal-agents.BAK": { "path": "/home/min/projects/personal-agents.BAK", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-20 08:51:20", "updated": "2026-02-19T23:52:38Z" },
-  "personal-agents": { "path": "/home/min/projects/personal-agents", "branch": "main", "status": "dirty", "last_commit": "Auto-sync: 2026-02-20 08:51:53", "updated": "2026-02-19T23:52:39Z" },
-  "consultiva-platform": { "path": "/home/min/projects/consultiva-platform", "branch": "main", "status": "dirty", "last_commit": "fix: Use 'prisma db push' to sync schema without requiring clean migration history", "updated": "2026-02-19T23:52:43Z" },
-  "wiki": { "path": "/home/min/ia/wiki", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:46", "updated": "2026-02-19T23:52:43Z" },
-  "BOHR-web": { "path": "/home/min/ia/BOHR-web", "branch": "main", "status": "dirty", "last_commit": "Merge pull request #293 from internet-academy/saurabh/SD-1194", "updated": "2026-02-19T23:52:44Z" },
-  "ia-advent-of-code": { "path": "/home/min/ia/ia-advent-of-code", "branch": "master", "status": "dirty", "last_commit": "added choo file", "updated": "2026-02-19T23:52:45Z" },
-  "member": { "path": "/home/min/ia/member", "branch": "test_restore", "status": "clean", "last_commit": "Merge branch 'bohr_ind/renewal' of https://github.com/internet-academy/member into test_restore", "updated": "2026-02-19T23:52:46Z" },
-  "docs": { "path": "/home/min/ia/docs", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:57", "updated": "2026-02-19T23:52:47Z" },
-  "BOHR-Corp": { "path": "/home/min/ia/BOHR-Corp", "branch": "backup", "status": "clean", "last_commit": "replacing a tag with router link", "updated": "2026-02-19T23:52:48Z" },
-  "bohr-individual": { "path": "/home/min/ia/bohr-individual", "branch": "test_server", "status": "clean", "last_commit": "Merge pull request #402 from internet-academy/u1/BenefitApplicationUpdate", "updated": "2026-02-19T23:52:49Z" }
+  "date-idea-app": { "path": "/home/min/projects/date-idea-app", "branch": "main", "status": "dirty", "last_commit": "�️ Remove empty vercel.json causing deployment error", "updated": "2026-02-19T23:53:04Z" },
+  "meeting-translator": { "path": "/home/min/projects/meeting-translator", "branch": "main", "status": "dirty", "last_commit": "Initial commit: Meeting Translator HUD v1.0", "updated": "2026-02-19T23:53:05Z" },
+  "mrclinic": { "path": "/home/min/projects/mrclinic", "branch": "master", "status": "dirty", "last_commit": "Fix setup command: Ensure groups are created before assignment", "updated": "2026-02-19T23:53:05Z" },
+  "personal-agents.BAK": { "path": "/home/min/projects/personal-agents.BAK", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-20 08:51:53", "updated": "2026-02-19T23:53:06Z" },
+  "personal-agents": { "path": "/home/min/projects/personal-agents", "branch": "main", "status": "dirty", "last_commit": "Auto-sync: 2026-02-20 08:52:41", "updated": "2026-02-19T23:53:08Z" },
+  "consultiva-platform": { "path": "/home/min/projects/consultiva-platform", "branch": "main", "status": "dirty", "last_commit": "fix: Use 'prisma db push' to sync schema without requiring clean migration history", "updated": "2026-02-19T23:53:10Z" },
+  "wiki": { "path": "/home/min/ia/wiki", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:46", "updated": "2026-02-19T23:53:11Z" },
+  "BOHR-web": { "path": "/home/min/ia/BOHR-web", "branch": "main", "status": "dirty", "last_commit": "Merge pull request #293 from internet-academy/saurabh/SD-1194", "updated": "2026-02-19T23:53:12Z" },
+  "ia-advent-of-code": { "path": "/home/min/ia/ia-advent-of-code", "branch": "master", "status": "dirty", "last_commit": "added choo file", "updated": "2026-02-19T23:53:13Z" },
+  "member": { "path": "/home/min/ia/member", "branch": "test_restore", "status": "clean", "last_commit": "Merge branch 'bohr_ind/renewal' of https://github.com/internet-academy/member into test_restore", "updated": "2026-02-19T23:53:14Z" },
+  "docs": { "path": "/home/min/ia/docs", "branch": "main", "status": "clean", "last_commit": "Auto-sync: 2026-02-17 12:47:57", "updated": "2026-02-19T23:53:15Z" },
+  "BOHR-Corp": { "path": "/home/min/ia/BOHR-Corp", "branch": "backup", "status": "clean", "last_commit": "replacing a tag with router link", "updated": "2026-02-19T23:53:16Z" },
+  "bohr-individual": { "path": "/home/min/ia/bohr-individual", "branch": "test_server", "status": "clean", "last_commit": "Merge pull request #402 from internet-academy/u1/BenefitApplicationUpdate", "updated": "2026-02-19T23:53:17Z" }
 }
