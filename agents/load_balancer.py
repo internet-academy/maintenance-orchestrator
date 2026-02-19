@@ -43,6 +43,24 @@ class LoadBalancer:
             "remaining_capacity": self.DAILY_LIMIT_HOURS - current_load
         }
 
+    def update_backlog_issue(self, issue_id_or_key, task_data):
+        """
+        Updates an existing issue in Backlog.
+        """
+        endpoint = f"{self.base_url}/issues/{issue_id_or_key}"
+        
+        payload = {
+            "apiKey": self.api_key,
+            "estimatedHours": task_data.get('estimated_hours'),
+            "dueDate": task_data.get('deadline', '')
+        }
+        # Only include fields that are present to avoid clearing data
+        payload = {k: v for k, v in payload.items() if v is not None}
+        
+        response = requests.patch(endpoint, data=payload)
+        response.raise_for_status()
+        return response.json()
+
     def create_backlog_issue(self, user_id, task_data):
         """
         Creates a new issue in Backlog.
