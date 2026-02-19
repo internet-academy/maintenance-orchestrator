@@ -39,7 +39,9 @@ class Orchestrator:
                 self.process_task(task)
 
         except Exception as e:
+            import traceback
             print(f"CRITICAL ERROR: {str(e)}")
+            traceback.print_exc()
 
     def process_task(self, task):
         # 1. Update Detection Logic
