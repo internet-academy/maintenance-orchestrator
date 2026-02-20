@@ -76,23 +76,18 @@ class CloudIngestor:
                 break
             
             search_row = data[start_index + offset]
-            # In your sheet, "System Development" is usually in column 2 (index 1) or 3
-            row_str = " ".join(search_row)
             
-            if "システム開発" in row_str or "System Development" in row_str:
-                # DEBUG: Print the row where we found it
-                print(f"DEBUG: Found section row: {search_row}")
-                
-                # Once we find the section, the hours are usually in column 12 (index 11)
+            # Check specifically index 9 for the role label
+            if len(search_row) > 9 and ("システム開発" in search_row[9] or "System Development" in search_row[9]):
+                # PIC is in index 10, Hours in index 11
                 try:
                     val = search_row[11] if len(search_row) > 11 else "0"
-                    est_hours = float(val) if val else 0.0
+                    est_hours = float(val) if val and str(val).strip() else 0.0
                 except (ValueError, TypeError):
-                    est_hours = 1.0 # Fallback for non-numeric
+                    est_hours = 1.0 # Fallback
                 
-                # PIC is usually in column 11 (index 10)
                 pic = search_row[10] if len(search_row) > 10 else None
-                break # Stop searching once we found our section
+                break
 
         # Validate Backlog ID format (e.g., MD_SD-1234)
         raw_backlog_id = row[9] if len(row) > 9 else None
