@@ -65,10 +65,9 @@ class CloudIngestor:
 
     def _parse_block_from_list(self, data, start_index):
         row = data[start_index]
-        # Content is usually 2 rows below the header
         content_row = data[start_index + 2] if (start_index + 2) < len(data) else [""] * 10
         
-        # DYNAMIC SEARCH for System Development section within the next 15 rows
+        # SEARCH for the specific row containing 'PIC' and 'Estimated Hours'
         est_hours = 0.0
         pic = None
         for offset in range(1, 15):
@@ -77,16 +76,17 @@ class CloudIngestor:
             
             search_row = data[start_index + offset]
             
-            # Check specifically index 9 for the role label
-            if len(search_row) > 9 and ("システム開発" in search_row[9] or "System Development" in search_row[9]):
-                # PIC is in index 10, Hours in index 11
+            # According to inspection, PIC and Estimated Hours are in the same row
+            if len(search_row) > 12 and search_row[9] == "PIC" and "Estimated Hours" in search_row[12]:
+                # PIC is in index 10
+                pic = search_row[10].strip() if search_row[10] else None
+                
+                # Hours are in index 13
                 try:
-                    val = search_row[11] if len(search_row) > 11 else "0"
+                    val = search_row[13] if len(search_row) > 13 else "0"
                     est_hours = float(val) if val and str(val).strip() else 0.0
                 except (ValueError, TypeError):
                     est_hours = 1.0 # Fallback
-                
-                pic = search_row[10] if len(search_row) > 10 else None
                 break
 
         # Validate Backlog ID format (e.g., MD_SD-1234)

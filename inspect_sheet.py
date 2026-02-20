@@ -17,8 +17,20 @@ def inspect_sheet():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     
-    sheet = client.open_by_key(sheet_id).get_worksheet(0)
-    data = sheet.get_all_values()
+    workbook = client.open_by_key(sheet_id)
+    target_pattern = "2602" # Current month
+    target_sheet = None
+    for ws in workbook.worksheets():
+        if target_pattern in ws.title:
+            target_sheet = ws
+            break
+    
+    if not target_sheet:
+        print(f"Tab with {target_pattern} not found. Tabs available: {[s.title for s in workbook.worksheets()]}")
+        target_sheet = workbook.get_worksheet(0)
+
+    print(f"--- Inspecting Tab: {target_sheet.title} ---")
+    data = target_sheet.get_all_values()
     
     print("--- Sheet Row Inspection (First 50 rows) ---")
     for i, row in enumerate(data[:50]):
