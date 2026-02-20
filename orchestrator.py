@@ -122,12 +122,79 @@ class Orchestrator:
             for task in tasks:
                 self.process_task(task)
             
+            # --- POST-SYNC REPORTING ---
+            self._send_daily_report(tasks)
+            
             self._save_state()
 
         except Exception as e:
             import traceback
             print(f"CRITICAL ERROR: {str(e)}")
             traceback.print_exc()
+
+    def _post_to_chat(self, text, thread_key=None):
+        """Sends a message to Google Chat via webhook."""
+        if not self.chat_webhook:
+            print("DEBUG: No Google Chat webhook configured. Skipping message.")
+            return
+
+        url = self.chat_webhook
+        if thread_key:
+            # threadKey automatically groups messages into a single thread in Google Chat
+            url += f"&threadKey={thread_key}"
+
+        payload = {"text": text}
+        try:
+            import requests
+            r = requests.post(url, json=payload)
+            r.raise_for_status()
+        except Exception as e:
+            print(f"ERROR posting to Google Chat: {e}")
+
+    def _send_daily_report(self, all_tasks):
+        """Aggregates open tasks and posts to the daily thread."""
+        today_str = datetime.now().strftime("%Y%m%d")
+        thread_key = f"daily_report_{today_str}"
+        
+        # 1. Create/Update Header
+        header = f"Daily Report {today_str}"
+        print(f"REPORT: Sending {header} to Google Chat...")
+        if self.dry_run:
+            print(f"[DRY RUN] Would post header: {header}")
+        else:
+            self._post_to_chat(header, thread_key=thread_key)
+
+        # 2. Group tasks by current PIC (based on Sheet PIC or load balancer assignment)
+        # Note: In a real run, we look at current_sheet_status
+        report_data = {}
+        for task in all_tasks:
+            status = task.get('current_sheet_status', '').lower()
+            if "complete" in status or "closed" in status or "resolved" in status:
+                continue
+            
+            # We look at the PIC column in the sheet
+            pic_name = task.get('pic')
+            if not pic_name:
+                continue
+                
+            if pic_name not in report_data:
+                report_data[pic_name] = []
+            
+            # Use the English summary we generated earlier if available
+            title = task.get('title_summary', task['content'][:50])
+            report_data[pic_name].append(f"- [{task.get('backlog_id', 'NEW')}] {title}")
+
+        # 3. Send individual messages for each PIC
+        for name, tasks in report_data.items():
+            chat_id = self.chat_ids.get(name, name)
+            mention = f"<users/{chat_id}>" if chat_id.isdigit() else f"@{name}"
+            
+            msg = f"{mention} here are your tasks for today:\n" + "\n".join(tasks)
+            
+            if self.dry_run:
+                print(f"[DRY RUN] Would post task list for {name}: {msg}")
+            else:
+                self._post_to_chat(msg, thread_key=thread_key)
 
     def _translate_and_summarize(self, text, fallback_translation=""):
         """Uses Gemini to translate Japanese to English and generate a title."""
