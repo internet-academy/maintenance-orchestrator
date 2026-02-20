@@ -92,17 +92,16 @@ class Orchestrator:
             print(f"CRITICAL ERROR: {str(e)}")
             traceback.print_exc()
 
-    def _translate_and_summarize(self, text):
+    def _translate_and_summarize(self, text, fallback_translation=""):
         """Uses Gemini to translate Japanese to English and generate a title."""
         if not self.client:
-            # Fallback if no Gemini key
-            snippet = text.replace('\n', ' ').strip()[:60] + "..."
-            return snippet, snippet
+            # Fallback to sheet's google translation if client is missing
+            return "Bug Report", fallback_translation if fallback_translation else text
 
         prompt = f"""
         You are a translation assistant for a software development team.
         Translate the following Japanese bug report/task description into professional English.
-        The translation should be full-text and include all details.
+        The translation should be full-text and include ALL details from the original.
         
         Also, provide a very concise (3-7 words) English summary for a ticket title.
         
@@ -121,27 +120,35 @@ class Orchestrator:
             )
             result = response.text.strip()
             
-            title = "Bug Report"
-            translation = text
-            
             if "TITLE:" in result and "TRANSLATION:" in result:
                 title_part = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip()
                 translation_part = result.split("TRANSLATION:")[1].strip()
+                # Clean up any potential markdown headers if Gemini included them
+                title_part = title_part.replace("**", "").replace("#", "").strip()
                 return title_part, translation_part
                 
-            return title, translation
+            return "Bug Report", fallback_translation if fallback_translation else text
         except Exception as e:
             print(f"ERROR calling Gemini API: {e}")
-            snippet = text.replace('\n', ' ').strip()[:60] + "..."
-            return snippet, snippet
+            # Hierarchy: Try to use sheet's translation as fallback if AI fails
+            title = "Bug Report"
+            if fallback_translation:
+                # Try to extract a simple title from the fallback
+                first_line = fallback_translation.split('\n')[0]
+                if len(first_line) > 10:
+                    title = first_line[:50] + "..." if len(first_line) > 50 else first_line
+            return title, fallback_translation if fallback_translation else text
 
     def _generate_bilingual_description(self, task):
         """Constructs a bilingual description with deep links and automated translation."""
         # Constants for precision linking
         GID = "635134579"
         
-        # Determine Title Summary and English Translation via Gemini
-        title_summary, en_translation = self._translate_and_summarize(task['content'])
+        # Determine Title Summary and English Translation via Gemini (with Sheet fallback)
+        title_summary, en_translation = self._translate_and_summarize(
+            task['content'], 
+            fallback_translation=task.get('english_translation_fallback', '')
+        )
             
         # Get localized name
         romaji_name = self.name_mapping.get(task['requester'], task['requester'])
