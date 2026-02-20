@@ -1,15 +1,15 @@
-# SUCCESS_CRITERIA: Timeline-Based Resource Leveling
+# SUCCESS_CRITERIA: Holiday-Aware Resource Leveling
 
-## 1. Timeline Engine (Technical)
-- [ ] **Capacity Model**: Each developer has a `Timeline` representing 14 consecutive days.
-- [ ] **Weekend Exclusion**: The engine must identify and skip Saturdays and Sundays when calculating dates.
-- [ ] **Pre-fill Logic**: Existing Backlog tasks (Open/In Progress) must be consumed first, filling buckets from Day 1 onwards.
+## 1. Holiday Integration (Technical)
+- [ ] **Library Deployment**: Install and utilize the `holidays` Python library.
+- [ ] **Locale Configuration**: Explicitly set the country to Japan (`JP`) to capture public holidays like Vernal Equinox, Golden Week, etc.
 
-## 2. Assignment Algorithm (Functional)
-- [ ] **Sequential Pouriing**: New task hours must flow into the first available space in the timeline.
-- [ ] **DueDate Calculation**: The system must return the specific date of the day the task is completed.
-- [ ] **Manager Trigger**: "Manager Overflow" should only trigger if the Core Team's **Day 1** (Today) is entirely full.
+## 2. Scheduling Logic (Functional)
+- [ ] **Triple-Exclusion**: The engine must skip:
+    1. Saturdays
+    2. Sundays
+    3. Japanese Public Holidays
+- [ ] **Bucket Integrity**: Ensure no "Daily Bucket" is created for a holiday.
 
-## 3. Transparency & Logging (Style)
-- [ ] **Timeline Visualization**: Print a simple text-based "capacity map" at the start of the run.
-- [ ] **Assignment Details**: Log which days a task was split across (e.g., "Task 4: Day 1 (2h), Day 2 (1h)").
+## 3. Verification (Style)
+- [ ] Log if a task's finish date was pushed further due to a holiday (e.g., "Skipping Holiday: Emperor's Birthday").
