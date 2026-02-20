@@ -66,7 +66,6 @@ class LoadBalancer:
         Fetches active issues updated in the last 7 days and sums their estimated hours.
         """
         endpoint = f"{self.base_url}/issues"
-        
         seven_days_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
         params = {
@@ -85,44 +84,26 @@ class LoadBalancer:
         total_hours = sum(float(issue.get("estimatedHours") or 0) for issue in issues)
         return total_hours
 
-    def can_assign_task(self, user_id, task_estimated_hours):
-        """
-        Legacy method.
-        """
-        current_load = self.get_active_workload(user_id)
-        projected_load = current_load + float(task_estimated_hours)
-        can_accept = projected_load <= self.DAILY_LIMIT_HOURS
-        return {"can_accept": can_accept, "current_load": current_load}
-
     def update_backlog_issue(self, issue_id_or_key, task_data):
         """
-        Updates an existing issue in Backlog. 
-        Only updates fields provided in task_data.
+        Updates an existing issue in Backlog.
+        Only updates fields that are explicitly provided.
         """
         endpoint = f"{self.base_url}/issues/{issue_id_or_key}"
         params = {"apiKey": self.api_key}
         
-        # Map internal keys to Backlog API keys
-        mapping = {
-            'estimated_hours': 'estimatedHours',
-            'deadline': 'dueDate',
-            'description': 'description',
-            'summary': 'summary',
-            'assignee_id': 'assigneeId'
-        }
-        
+        # Explicit mapping to Backlog API naming
         payload = {}
-        for internal_key, api_key in mapping.items():
-            if internal_key in task_data:
-                payload[api_key] = task_data[internal_key]
-        
-        # If the specialist passed direct Backlog API keys, include those too
-        for k, v in task_data.items():
-            if k in ['description', 'summary', 'estimatedHours', 'dueDate', 'assigneeId']:
-                payload[k] = v
+        if 'estimated_hours' in task_data:
+            payload['estimatedHours'] = task_data['estimated_hours']
+        if 'deadline' in task_data:
+            payload['dueDate'] = task_data['deadline']
+        if 'description' in task_data:
+            payload['description'] = task_data['description']
+        if 'summary' in task_data:
+            payload['summary'] = task_data['summary']
 
         if not payload:
-            print(f"DEBUG: No update payload generated for {issue_id_or_key}")
             return
             
         response = requests.patch(endpoint, params=params, data=payload)
@@ -136,7 +117,6 @@ class LoadBalancer:
         endpoint = f"{self.base_url}/issues"
         params = {"apiKey": self.api_key}
         
-        # Mapping the Ingestor's task data to Backlog's API fields
         payload = {
             "projectId": 528169, # System Development (MD_SD)
             "summary": f"[ERROR] {task_data['requester']} - {task_data['id']}",
