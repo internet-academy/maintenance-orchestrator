@@ -63,7 +63,30 @@ class Orchestrator:
             print(f"CRITICAL ERROR: {str(e)}")
             traceback.print_exc()
 
+    def _generate_bilingual_description(self, task):
+        """Constructs a bilingual description with deep links."""
+        # Simple summary logic: first 50 chars of content
+        # In a real run, this would be an LLM-refined summary.
+        clean_content = task['content'].replace('\n', ' ').strip()
+        summary = clean_content[:60] + "..." if len(clean_content) > 60 else clean_content
+        
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit#gid={task.get('gid', 0)}&range=A{task['row_index']+1}"
+        
+        description = f"## English Summary\n{summary}\n\n"
+        description += f"## Reference Links\n- **Original Sheet Row**: [Click here to view in Google Sheets]({sheet_url})\n"
+        if task.get('chat_url'):
+            description += f"- **Google Chat**: [View conversation]({task['chat_url']})\n"
+        
+        description += f"\n## 原文 (Japanese)\n{task['content']}"
+        return description, summary
+
     def process_task(self, task):
+        # Generate Bilingual content and summary for title
+        full_desc, ai_summary = self._generate_bilingual_description(task)
+        task['description'] = full_desc
+        # Informative title
+        task['title_summary'] = ai_summary
+
         # 1. Update Detection Logic
         backlog_id = task.get('backlog_id')
         if backlog_id:
@@ -77,7 +100,7 @@ class Orchestrator:
                 print(f"DEBUG: Calculated projected finish for update: {due_date}")
             
             if self.dry_run:
-                print(f"[DRY RUN] Would update Backlog {backlog_id} with {task['estimated_hours']}h and Deadline {task.get('deadline')}")
+                print(f"[DRY RUN] Would update Backlog {backlog_id} with informative description.")
                 return
             try:
                 self.load_balancer.update_backlog_issue(backlog_id, task)
@@ -100,10 +123,10 @@ class Orchestrator:
             task['deadline'] = due_date
             
             print(f"ASSIGNING: Task {task['id']} (Req: {task['requester']}) ({task['estimated_hours']}h) -> {best_dev['name']}")
-            print(f"PROJECTED FINISH: {due_date}")
+            print(f"TITLE PREVIEW: [ERROR] {ai_summary} ({task['requester']} - #{task['id']})")
             
             if self.dry_run:
-                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with DueDate: {due_date}")
+                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with deep-link and summary.")
                 return
             try:
                 issue = self.load_balancer.create_backlog_issue(best_dev['id'], task)
