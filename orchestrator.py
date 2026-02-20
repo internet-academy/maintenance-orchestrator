@@ -86,6 +86,7 @@ class Orchestrator:
         task['description'] = full_desc
         # Informative title
         task['title_summary'] = ai_summary
+        task['summary'] = f"[ERROR] {ai_summary} ({task['requester']} - #{task['id']})"
 
         # 1. Update Detection Logic
         backlog_id = task.get('backlog_id')
