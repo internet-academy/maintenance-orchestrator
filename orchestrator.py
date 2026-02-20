@@ -1,6 +1,6 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
 from agents.cloud_ingestor import CloudIngestor
 from agents.load_balancer import LoadBalancer, DeveloperTimeline
 from datetime import datetime
@@ -18,11 +18,11 @@ class Orchestrator:
         self.gemini_key = os.getenv('GEMINI_API_KEY')
 
         if self.gemini_key:
-            genai.configure(api_key=self.gemini_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.client = genai.Client(api_key=self.gemini_key)
+            self.model_name = 'gemini-2.0-flash'
         else:
             print("WARNING: GEMINI_API_KEY not found. Automated translation will be skipped.")
-            self.model = None
+            self.client = None
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
@@ -94,7 +94,7 @@ class Orchestrator:
 
     def _translate_and_summarize(self, text):
         """Uses Gemini to translate Japanese to English and generate a title."""
-        if not self.model:
+        if not self.client:
             # Fallback if no Gemini key
             snippet = text.replace('\n', ' ').strip()[:60] + "..."
             return snippet, snippet
@@ -115,7 +115,10 @@ class Orchestrator:
         """
         
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             result = response.text.strip()
             
             title = "Bug Report"
