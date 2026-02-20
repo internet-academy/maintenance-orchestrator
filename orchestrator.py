@@ -118,7 +118,12 @@ class Orchestrator:
             
             if is_rightful_owner:
                 print(f"UPDATE: Found verified Backlog ID {backlog_id}. Updating fields...")
-                # ... (rest of the update logic)
+                # CALCULATE TIMELINE FOR UPDATES
+                best_dev = self._find_best_dev(task['estimated_hours'])
+                if best_dev:
+                    due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
+                    task['deadline'] = due_date
+                    print(f"DEBUG: Calculated projected finish for verified update: {due_date}")
             else:
                 print(f"ACTION: ID {backlog_id} appears to be a copy. Resetting to CREATE mode for this row.")
                 backlog_id = None # Force creation of a fresh ticket
