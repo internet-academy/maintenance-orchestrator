@@ -46,9 +46,11 @@ class CloudIngestor:
         all_data = worksheet.get_all_values()
         
         tasks = []
-        for i, row in enumerate(all_data):
+        # Start from Row 18 to skip headers and the Example (記入例) block
+        for i in range(18, len(all_data)):
+            row = all_data[i]
             # Check if row starts with a number (Task ID)
-            if row and row[0].isdigit():
+            if row and row[0].strip().isdigit():
                 task = self._parse_block_from_list(all_data, i)
                 if task and self._is_valid(task):
                     tasks.append(task)

@@ -76,7 +76,7 @@ class Orchestrator:
         best_dev = self._find_best_dev(task['estimated_hours'])
         
         if best_dev:
-            print(f"ASSIGNING: Task {task['id']} ({task['estimated_hours']}h) -> {best_dev['name']}")
+            print(f"ASSIGNING: Task {task['id']} (Req: {task['requester']}) ({task['estimated_hours']}h) -> {best_dev['name']}")
             if self.dry_run:
                 print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} and write back to sheet.")
                 return
