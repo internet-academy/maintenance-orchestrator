@@ -195,7 +195,7 @@ class Orchestrator:
             is_rightful_owner = self._verify_ownership(backlog_id, task['row_index'])
             
             if is_rightful_owner:
-                print(f"UPDATE: Found verified Backlog ID {backlog_id}. Updating fields...")
+                print(f"UPDATE: Found verified Backlog ID {backlog_id} (Req: {romaji_name}). Updating fields...")
                 # CALCULATE TIMELINE FOR UPDATES
                 best_dev = self._find_best_dev(task['estimated_hours'])
                 if best_dev:
@@ -230,8 +230,8 @@ class Orchestrator:
             due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
             task['deadline'] = due_date
             
-            print(f"ASSIGNING: Task {task['id']} (Req: {task['requester']}) ({task['estimated_hours']}h) -> {best_dev['name']}")
-            print(f"TITLE PREVIEW: [ERROR] {ai_summary} ({task['requester']} - #{task['id']})")
+            print(f"ASSIGNING: Task {task['id']} (Req: {romaji_name}) ({task['estimated_hours']}h) -> {best_dev['name']}")
+            print(f"TITLE PREVIEW: {task['summary']}")
             
             if self.dry_run:
                 print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with deep-link and summary.")
