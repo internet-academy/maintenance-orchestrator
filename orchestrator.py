@@ -91,7 +91,8 @@ class Orchestrator:
         if dev_id not in self.session_load:
             # First time this run: get actual load from Backlog API
             try:
-                actual_load = self.load_balancer.get_active_workload(dev_id)
+                # Use the numeric project ID for System Development (MD_SD)
+                actual_load = self.load_balancer.get_active_workload(dev_id, project_id=528169)
             except:
                 actual_load = 0.0 # Fallback
             self.session_load[dev_id] = actual_load
