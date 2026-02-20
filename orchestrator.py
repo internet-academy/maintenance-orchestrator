@@ -26,12 +26,20 @@ class Orchestrator:
             "Choo": 1052465
         }
         
-        # Initialize Timelines for all developers starting March 2nd
-        self.start_date = "2026-03-02"
+        # Initialize Timelines for all developers
+        # Defaults to Today, but can be overridden via env var (e.g. for March start)
+        self.start_date = os.getenv('SYNC_START_DATE') 
+        
         self.timelines = {}
         for name, dev_id in self.developer_map.items():
-            # For this run, we start fresh on March 2nd as core team is busy until then
             timeline = DeveloperTimeline(name, start_date=self.start_date)
+            # ALWAYS pre-fill with actual Backlog load to ensure real-time accuracy
+            try:
+                actual_load = self.load_balancer.get_active_workload(dev_id, project_id=528169)
+                timeline.fill_hours(actual_load)
+            except Exception as e:
+                print(f"WARNING: Could not fetch initial load for {name}: {e}")
+            
             self.timelines[dev_id] = timeline
 
     def run(self):
