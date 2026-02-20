@@ -1,22 +1,15 @@
-# SUCCESS_CRITERIA: High-Frequency Sync & Daily Reporting
+# SUCCESS_CRITERIA: Requester Parent Automation (◆リクエラ)
 
-## 1. Frequency (Ops)
-- [ ] **20-Minute Intervals**: Update the GitHub Actions cron schedule to `*/20 * * * *`.
-- [ ] **Locking Mechanism**: Ensure that if a run takes longer than 20 minutes (unlikely), a second run doesn't start and cause race conditions.
+## 1. Parent Task Lifecycle (Technical)
+- [ ] **End-of-Month Calculation**: Implement logic to determine the last day of the month for any given `dueDate`.
+- [ ] **Naming Standard**: Parent tasks must follow the format `◆リクエラ(YYYY/MM/DD)` (e.g., `◆リクエラ(2026/02/28)`).
+- [ ] **Memoized Lookup**: Use `find_issue_by_summary` in `LoadBalancer` to locate existing parents.
+- [ ] **Auto-Provisioning**: If the monthly parent does not exist, the system must create it as a top-level task before assigning sub-tasks.
 
-## 2. Google Chat Integration (Technical)
-- [ ] **Target Space**: `AAAAXcdPfl0`.
-- [ ] **Thread Management**: 
-    - Logic to detect if a "Daily Report YYYYMMDD" thread exists.
-    - If not, create it.
-    - If yes, append/update messages within that thread.
-- [ ] **@Mentions**: Map developer names to their Google Chat IDs for active notification.
+## 2. Hierarchical Integration (Functional)
+- [ ] **Sub-Task Linking**: Every error report sub-task created must include the `parentIssueId` of its corresponding monthly parent.
+- [ ] **Spillover Handling**: Tasks assigned to March must automatically land under the March parent, even if the run happens in February.
 
-## 3. Reporting Logic (Functional)
-- [ ] **Daily Task Load**: For each developer, extract all tasks with a `dueDate` of Today (or Open tasks assigned to them).
-- [ ] **Message Formatting**:
-    - Header: `Daily Report 20260220`
-    - Body: `@DeveloperName here are your tasks for today: [MD_SD-XXXX] Title...`
-
-## 4. Verification (Ops)
-- [ ] **Dry Run**: Print the exact payload that would be sent to Google Chat.
+## 3. Verification (Ops)
+- [ ] **Dry Run Trace**: Log: "HIERARCHY: Task X linked to parent '◆リクエラ(YYYY/MM/DD)' (ID: Y)".
+- [ ] **Sentry Check**: Ensure parent tasks are created with appropriate priority and category (if any).
