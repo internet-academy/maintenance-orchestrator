@@ -10,13 +10,19 @@ class LoadBalancer:
 
     def get_active_workload(self, user_id, project_id=None):
         """
-        Fetches active issues and sums their estimated hours.
+        Fetches active issues updated in the last 7 days and sums their estimated hours.
         """
         endpoint = f"{self.base_url}/issues"
+        
+        # Calculate date for 7 days ago
+        from datetime import datetime, timedelta
+        seven_days_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+
         params = {
             "apiKey": self.api_key,
             "assigneeId[]": [user_id],
-            "statusId[]": [1, 2], # 1: Open, 2: In Progress (Exclude 3: Resolved)
+            "statusId[]": [1, 2], # 1: Open, 2: In Progress
+            "updatedSince": seven_days_ago
         }
         if project_id:
             params["projectId[]"] = [project_id]
