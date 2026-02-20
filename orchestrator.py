@@ -269,6 +269,9 @@ class Orchestrator:
                     return
 
                 # If we reach here, content has changed.
+                # Update local state so next run skips if still unchanged
+                self.state[backlog_id] = current_hash
+
                 # Generate Bilingual content, summary, and localized name
                 full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
                 task['description'] = full_desc
