@@ -1,13 +1,18 @@
-# SUCCESS_CRITERIA: High-Fidelity English Titling & Translation
+# SUCCESS_CRITERIA: Multi-Source Translation & Verification
 
-## 1. Title Language (Functional)
-- [ ] **Strict English**: The text between `[ERROR]` and the brackets `(Requester - #ID)` must be a concise English summary.
-- [ ] **Descriptive**: It must describe the *action* or *defect* (e.g., "Correct enrollment date" instead of "Mao task").
+## 1. Sheet Discovery (Technical)
+- [ ] **Column Identification**: Locate the exact column in the Google Sheet containing the Google-translated English description.
+- [ ] **Ingestion Upgrade**: Update `CloudIngestor` to capture this `google_translation` field.
 
-## 2. Description Translation (Technical)
-- [ ] **True Translation**: The `## English Summary` section must contain an English translation of the Japanese text, not a snippet of the original.
-- [ ] **Bilingual Separation**: Maintain the clear distinction between the English translation and the `## 原文 (Japanese)` section.
+## 2. Fallback Logic (Functional)
+- [ ] **Hierarchical Translation**:
+    1. Primary: Gemini AI (for high-fidelity professional tone).
+    2. Secondary: Google Translation from Sheet (if Gemini fails/quota hit).
+    3. Tertiary: Hardcoded English Title + Original snippet (absolute fallback).
 
-## 3. Implementation Accuracy (Ops)
-- [ ] **Retroactive Correction**: Successfully update MD_SD-1249 through MD_SD-1256 with the corrected English titles and summaries.
-- [ ] **Orchestrator Hardening**: Ensure the code logic no longer defaults to Japanese snippets for English fields.
+## 3. Title Refinement (Style)
+- [ ] **Translation Audit**: Compare current Backlog titles against the "Google Translation" column to identify where the AI is drifting or failing.
+- [ ] **Action-Oriented Titles**: Ensure titles describe the problem accurately.
+
+## 4. Verification (Ops)
+- [ ] **Content Check**: Fetch one task from Backlog and compare it side-by-side with the Sheet data to confirm "incorrectness" root cause.
