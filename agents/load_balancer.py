@@ -106,6 +106,7 @@ class LoadBalancer:
         if not payload:
             return
             
+        print(f"DEBUG: Sending PATCH payload to {issue_id_or_key}: {payload}")
         response = requests.patch(endpoint, params=params, data=payload)
         response.raise_for_status()
         return response.json()
