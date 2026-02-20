@@ -1,13 +1,13 @@
-# SUCCESS_CRITERIA: Multi-Task Load Verification
+# SUCCESS_CRITERIA: Multi-Task Load Verification (Manager Overflow)
 
-## 1. Load Calculation (Technical)
-- [ ] **State Tracking**: The Orchestrator must maintain a "Projected Load" in memory during a single run to account for tasks *just* assigned but not yet reflected in the API.
-- [ ] **Real-time API Check**: Query the current Backlog load for each developer *before* each assignment decision.
+## 1. Prioritization Logic (Functional)
+- [ ] **Tiered Assignment**: Divide developers into "Core Team" (Saurabh, Raman, Ewan) and "Manager" (Choo).
+- [ ] **Overflow Rule**: Choo must only be considered for assignment if ALL Core Team members have reached their 6.0h limit for the session.
+- [ ] **Fairness within Tier**: Within the Core Team, the lowest-load assignment logic must still apply.
 
-## 2. Capacity Enforcement (Functional)
-- [ ] **Hard Limit**: No developer should be assigned more than 6.0 total hours (Current + New) in a single cycle.
-- [ ] **Redistribution**: If Saurabh reaches 6h, the system must automatically pivot to the next available developer (e.g., Raman, Choo, or Ewan).
-- [ ] **Overload Handling**: If no developers have capacity, the tasks must be logged as "PENDING" or "SKIPPED" without being created in Backlog.
+## 2. Capacity Enforcement (Technical)
+- [ ] **Hard Limit**: Choo still maintains a 6.0h limit; if he is also full, the task must be marked as "OVERLOAD".
+- [ ] **Session Integrity**: The `session_load` must correctly track Choo's load if he is finally utilized.
 
-## 3. Transparency (Style)
-- [ ] Log the running load for each developer as tasks are assigned during the batch process.
+## 3. Reporting (Style)
+- [ ] Log messages should clearly indicate if a task was assigned via "Manager Overflow".

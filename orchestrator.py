@@ -107,26 +107,39 @@ class Orchestrator:
         return self.session_load[dev_id]
 
     def _find_best_dev(self, hours):
-        """Finds the dev with the lowest current load who is under the 6h limit."""
-        options = []
+        """Finds the dev with the lowest current load, prioritizing Core Team over Manager."""
+        core_options = []
+        manager_option = None
+
         for name, dev_id in self.developer_map.items():
             current_total = self._get_dev_session_load(dev_id)
             projected = current_total + float(hours)
             
             if projected <= self.load_balancer.DAILY_LIMIT_HOURS:
-                options.append({
+                option = {
                     "name": name, 
                     "id": dev_id, 
                     "load": current_total
-                })
+                }
+                if name == "Choo":
+                    manager_option = option
+                else:
+                    core_options.append(option)
         
-        # Sort by current load (ascending) to balance the team
-        if options:
-            best = sorted(options, key=lambda x: x['load'])[0]
-            # Update in-memory load for the NEXT task in this run
+        # 1. Try Core Team first
+        if core_options:
+            best = sorted(core_options, key=lambda x: x['load'])[0]
             self.session_load[best['id']] += float(hours)
-            print(f"DEBUG: {best['name']} running load: {self.session_load[best['id']]}h")
+            print(f"DEBUG: {best['name']} (Core) running load: {self.session_load[best['id']]}h")
             return best
+        
+        # 2. If Core is full, use Manager (Choo)
+        if manager_option:
+            print(f"DEBUG: Core Team full. Utilizing Manager Overflow.")
+            self.session_load[manager_option['id']] += float(hours)
+            print(f"DEBUG: {manager_option['name']} (Manager) running load: {self.session_load[manager_option['id']]}h")
+            return manager_option
+
         return None
 
 if __name__ == "__main__":
