@@ -80,6 +80,9 @@ class CloudIngestor:
             row_str = " ".join(search_row)
             
             if "システム開発" in row_str or "System Development" in row_str:
+                # DEBUG: Print the row where we found it
+                print(f"DEBUG: Found section row: {search_row}")
+                
                 # Once we find the section, the hours are usually in column 12 (index 11)
                 try:
                     val = search_row[11] if len(search_row) > 11 else "0"
