@@ -70,6 +70,7 @@ class CloudIngestor:
     def _parse_block_from_list(self, data, start_index):
         row = data[start_index]
         content_row = data[start_index + 2] if (start_index + 2) < len(data) else [""] * 10
+        translation_row = data[start_index + 3] if (start_index + 3) < len(data) else [""] * 10
         
         # SEARCH for the specific row containing 'PIC' and 'Estimated Hours'
         est_hours = 0.0
@@ -105,6 +106,7 @@ class CloudIngestor:
             "requester": row[3],
             "date": row[4],
             "content": content_row[3] if len(content_row) > 3 else "",
+            "english_translation_fallback": translation_row[3] if len(translation_row) > 3 else "",
             "estimated_hours": est_hours,
             "backlog_id": backlog_id,
             "pic": pic
