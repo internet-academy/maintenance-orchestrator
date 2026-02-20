@@ -19,6 +19,9 @@ class Orchestrator:
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
         
+        # In-memory tracking for this specific run to prevent over-assignment
+        self.session_load = {} # { dev_id: running_total_hours }
+
         # Confirmed Developer Mapping
         # TODO: Replace these placeholder IDs with real Backlog User IDs
         self.developer_map = {
@@ -84,22 +87,39 @@ class Orchestrator:
         else:
             print(f"OVERLOAD: No capacity for Task {task['id']} ({task['estimated_hours']}h) today.")
 
+    def _get_dev_session_load(self, dev_id):
+        """Gets current load from API + what we've assigned this session."""
+        if dev_id not in self.session_load:
+            # First time this run: get actual load from Backlog API
+            try:
+                actual_load = self.load_balancer.get_active_workload(dev_id)
+            except:
+                actual_load = 0.0 # Fallback
+            self.session_load[dev_id] = actual_load
+            
+        return self.session_load[dev_id]
+
     def _find_best_dev(self, hours):
         """Finds the dev with the lowest current load who is under the 6h limit."""
         options = []
         for name, dev_id in self.developer_map.items():
-            # In production, this calls the real Backlog API
-            status = self.load_balancer.can_assign_task(dev_id, hours)
-            if status['can_accept']:
+            current_total = self._get_dev_session_load(dev_id)
+            projected = current_total + float(hours)
+            
+            if projected <= self.load_balancer.DAILY_LIMIT_HOURS:
                 options.append({
                     "name": name, 
                     "id": dev_id, 
-                    "load": status['current_load']
+                    "load": current_total
                 })
         
         # Sort by current load (ascending) to balance the team
         if options:
-            return sorted(options, key=lambda x: x['load'])[0]
+            best = sorted(options, key=lambda x: x['load'])[0]
+            # Update in-memory load for the NEXT task in this run
+            self.session_load[best['id']] += float(hours)
+            print(f"DEBUG: {best['name']} running load: {self.session_load[best['id']]}h")
+            return best
         return None
 
 if __name__ == "__main__":
