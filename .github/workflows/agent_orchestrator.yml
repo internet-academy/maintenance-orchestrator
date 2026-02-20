@@ -34,4 +34,5 @@ jobs:
           BACKLOG_SPACE_ID: ${{ secrets.BACKLOG_SPACE_ID }}
           BACKLOG_PROJECT_ID: "MD_SD"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_CHAT_REPORT_WEBHOOK: ${{ secrets.GOOGLE_CHAT_REPORT_WEBHOOK }}
         run: python orchestrator.py
