@@ -1,6 +1,43 @@
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+
+class DeveloperTimeline:
+    def __init__(self, name, daily_limit=6.0, days_count=14):
+        self.name = name
+        self.daily_limit = daily_limit
+        self.buckets = [] # List of {'date': date, 'used': hours, 'remaining': hours}
+        
+        current = datetime.now()
+        while len(self.buckets) < days_count:
+            # Skip weekends (5: Saturday, 6: Sunday)
+            if current.weekday() < 5:
+                self.buckets.append({
+                    'date': current.strftime("%Y-%m-%d"),
+                    'used': 0.0,
+                    'remaining': daily_limit
+                })
+            current += timedelta(days=1)
+
+    def fill_hours(self, hours):
+        """Pours hours into buckets sequentially. Returns the completion date."""
+        remaining_to_pour = float(hours)
+        last_date = self.buckets[0]['date']
+        
+        for bucket in self.buckets:
+            if remaining_to_pour <= 0:
+                break
+            
+            can_take = min(remaining_to_pour, bucket['remaining'])
+            bucket['used'] += can_take
+            bucket['remaining'] -= can_take
+            remaining_to_pour -= can_take
+            last_date = bucket['date']
+            
+        return last_date
+
+    def get_today_usage(self):
+        return self.buckets[0]['used']
 
 class LoadBalancer:
     def __init__(self, api_key, space_id):
@@ -14,8 +51,6 @@ class LoadBalancer:
         """
         endpoint = f"{self.base_url}/issues"
         
-        # Calculate date for 7 days ago
-        from datetime import datetime, timedelta
         seven_days_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
 
         params = {
@@ -36,19 +71,12 @@ class LoadBalancer:
 
     def can_assign_task(self, user_id, task_estimated_hours):
         """
-        Determines if a developer can take on a new task based on the 6-hour rule.
+        Legacy method - now handled by Orchestrator's timeline logic.
         """
         current_load = self.get_active_workload(user_id)
         projected_load = current_load + float(task_estimated_hours)
-        
         can_accept = projected_load <= self.DAILY_LIMIT_HOURS
-        
-        return {
-            "can_accept": can_accept,
-            "current_load": current_load,
-            "projected_load": projected_load,
-            "remaining_capacity": self.DAILY_LIMIT_HOURS - current_load
-        }
+        return {"can_accept": can_accept, "current_load": current_load}
 
     def update_backlog_issue(self, issue_id_or_key, task_data):
         """
@@ -77,10 +105,10 @@ class LoadBalancer:
         # Mapping the Ingestor's task data to Backlog's API fields
         payload = {
             "apiKey": self.api_key,
-            "projectId": self._get_project_id(), # We need to define which project this goes to
-            "summary": f"[ERROR] {task_data['requester']} - {task_data['date']}",
+            "projectId": self._get_project_id(),
+            "summary": f"[ERROR] {task_data['requester']} - {task_data['id']}",
             "description": f"Page: {task_data.get('page_url', 'N/A')}\n\nContent:\n{task_data['content']}\n\nChat URL: {task_data.get('chat_url', 'N/A')}",
-            "issueTypeId": 1, # Usually 'Bug' or 'Task' - check your project settings
+            "issueTypeId": 1, # Bug
             "priorityId": 3,  # Normal
             "assigneeId": user_id,
             "estimatedHours": task_data['estimated_hours'],
@@ -92,24 +120,4 @@ class LoadBalancer:
         return response.json()
 
     def _get_project_id(self):
-        # You'll need the numeric ID of your Backlog Project
-        # You can find this in your Project Settings or I can help you find it.
         return os.getenv('BACKLOG_PROJECT_ID', '12345')
-
-# --- Example Usage (Mocked) ---
-if __name__ == "__main__":
-    # These would be your environment variables
-    API_KEY = "your_backlog_api_key"
-    SPACE_ID = "your_workspace_name"
-    
-    # Example Developer ID (Backlog User ID)
-    DEV_ID = 12345
-    NEW_TASK_ESTIMATE = 1.5
-    
-    # In a real scenario, this would be triggered by the 'Ingestor' agent
-    lb = LoadBalancer(API_KEY, SPACE_ID)
-    
-    # result = lb.can_assign_task(DEV_ID, NEW_TASK_ESTIMATE)
-    # print(f"Can Assign: {result['can_accept']} (Projected Load: {result['projected_load']}h)")
-    
-    print("Load Balancer Prototype initialized with 6-hour daily limit logic.")
