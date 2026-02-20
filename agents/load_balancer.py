@@ -92,6 +92,24 @@ class LoadBalancer:
         response.raise_for_status()
         return response.json()
 
+    def find_issue_by_summary(self, summary, project_id):
+        """Searches for an issue with an exact summary match."""
+        endpoint = f"{self.base_url}/issues"
+        params = {
+            "apiKey": self.api_key,
+            "projectId[]": [project_id],
+            "keyword": summary
+        }
+        response = requests.get(endpoint, params=params)
+        response.raise_for_status()
+        issues = response.json()
+        
+        # Filter for exact match because keyword search is fuzzy
+        for issue in issues:
+            if issue['summary'] == summary:
+                return issue
+        return None
+
     def update_backlog_issue(self, issue_id_or_key, task_data):
         """
         Updates an existing issue in Backlog.
@@ -110,6 +128,8 @@ class LoadBalancer:
             payload['description'] = task_data['description']
         if 'summary' in task_data:
             payload['summary'] = task_data['summary']
+        if 'parent_id' in task_data:
+            payload['parentIssueId'] = task_data['parent_id']
 
         if not payload:
             return
@@ -139,6 +159,9 @@ class LoadBalancer:
             "estimatedHours": task_data['estimated_hours'],
             "dueDate": task_data.get('deadline', '')
         }
+        
+        if 'parent_id' in task_data:
+            payload['parentIssueId'] = task_data['parent_id']
         
         response = requests.post(endpoint, params=params, data=payload)
         response.raise_for_status()
