@@ -58,7 +58,7 @@ class DeveloperTimeline:
 class LoadBalancer:
     def __init__(self, api_key, space_id):
         self.api_key = api_key
-        self.base_url = f"https://{space_id}.backlog.jp/api/v2"
+        self.base_url = f"https://{space_id}.backlog.com/api/v2"
         self.DAILY_LIMIT_HOURS = 6.0
 
     def get_active_workload(self, user_id, project_id=None):
@@ -87,7 +87,7 @@ class LoadBalancer:
 
     def can_assign_task(self, user_id, task_estimated_hours):
         """
-        Legacy method - now handled by Orchestrator's timeline logic.
+        Legacy method.
         """
         current_load = self.get_active_workload(user_id)
         projected_load = current_load + float(task_estimated_hours)
@@ -124,7 +124,7 @@ class LoadBalancer:
             "projectId": 528169, # System Development (MD_SD)
             "summary": f"[ERROR] {task_data['requester']} - {task_data['id']}",
             "description": f"Page: {task_data.get('page_url', 'N/A')}\n\nContent:\n{task_data['content']}\n\nChat URL: {task_data.get('chat_url', 'N/A')}",
-            "issueTypeId": 1, # Bug
+            "issueTypeId": 2750765, # バグ (MD_SD Project specific)
             "priorityId": 3,  # Normal
             "assigneeId": user_id,
             "estimatedHours": task_data['estimated_hours'],
@@ -134,6 +134,3 @@ class LoadBalancer:
         response = requests.post(endpoint, params=params, data=payload)
         response.raise_for_status()
         return response.json()
-
-    def _get_project_id(self):
-        return os.getenv('BACKLOG_PROJECT_ID', '12345')
