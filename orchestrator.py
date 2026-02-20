@@ -225,24 +225,21 @@ class Orchestrator:
             return False
 
     def process_task(self, task):
-        # Generate Bilingual content, summary, and localized name
-        full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
-        task['description'] = full_desc
-        task['title_summary'] = ai_summary
-        task['summary'] = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
-
         # 1. Update Detection & Ownership Verification
         backlog_id = task.get('backlog_id')
         latest_backlog_issue = None
+        
+        # Calculate current content hash
+        current_hash = self._get_task_hash(task)
         
         if backlog_id:
             # NEW: Verify that this ID wasn't just copy-pasted from another row
             is_rightful_owner = self._verify_ownership(backlog_id, task)
             
             if is_rightful_owner:
-                print(f"UPDATE: Found verified Backlog ID {backlog_id} (Req: {romaji_name}). Updating fields...")
+                print(f"UPDATE: Found verified Backlog ID {backlog_id}. Checking for changes...")
                 
-                # Fetch full issue to get latest status
+                # Fetch full issue to get latest status (Reverse Sync)
                 try:
                     latest_backlog_issue = self.load_balancer.get_issue(backlog_id)
                     
@@ -266,6 +263,18 @@ class Orchestrator:
                 except Exception as e:
                     print(f"WARNING: Could not fetch latest status for {backlog_id}: {e}")
 
+                # --- CHANGE DETECTION (Sheet -> Backlog) ---
+                if self.state.get(backlog_id) == current_hash:
+                    print(f"SKIP: No content changes detected for {backlog_id}.")
+                    return
+
+                # If we reach here, content has changed.
+                # Generate Bilingual content, summary, and localized name
+                full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+                task['description'] = full_desc
+                task['title_summary'] = ai_summary
+                task['summary'] = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
+
                 # CALCULATE TIMELINE FOR UPDATES
                 best_dev = self._find_best_dev(task['estimated_hours'])
                 if best_dev:
@@ -283,16 +292,24 @@ class Orchestrator:
             try:
                 self.load_balancer.update_backlog_issue(backlog_id, task)
                 print(f"SUCCESS: Updated Backlog {backlog_id}")
+                # Update local state
+                self.state[backlog_id] = current_hash
             except Exception as e:
                 print(f"ERROR: Failed to update {backlog_id}: {str(e)}")
             return
 
-        # 2. Skip if already assigned in sheet
+        # 2. Skip if already assigned in sheet (New Task Only)
         if task.get('pic'):
             print(f"SKIP: Task {task['id']} already has PIC: {task['pic']}")
             return
 
         # 3. New Task Assignment Logic
+        # Generate Bilingual content, summary, and localized name
+        full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+        task['description'] = full_desc
+        task['title_summary'] = ai_summary
+        task['summary'] = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
+
         best_dev = self._find_best_dev(task['estimated_hours'])
         
         if best_dev:
@@ -311,6 +328,8 @@ class Orchestrator:
                 issue_key = issue['issueKey']
                 print(f"CREATED: Backlog Issue {issue_key}")
                 self.ingestor.write_backlog_id(task['row_index'], issue_key)
+                # Update local state
+                self.state[issue_key] = current_hash
             except Exception as e:
                 print(f"ERROR: Failed to create issue: {str(e)}")
         else:
