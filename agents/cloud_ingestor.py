@@ -65,16 +65,32 @@ class CloudIngestor:
 
     def _parse_block_from_list(self, data, start_index):
         row = data[start_index]
-        # Content is usually 2 rows below the header in your block format
+        # Content is usually 2 rows below the header
         content_row = data[start_index + 2] if (start_index + 2) < len(data) else [""] * 10
         
-        # Handle potential non-numeric strings in hours column
-        try:
-            est_hours = float(row[11]) if len(row) > 11 and row[11] else 1.0
-        except (ValueError, TypeError):
-            # If it's a note or empty, fallback to 1.0
-            est_hours = 1.0
-        
+        # DYNAMIC SEARCH for System Development section within the next 15 rows
+        est_hours = 0.0
+        pic = None
+        for offset in range(1, 15):
+            if (start_index + offset) >= len(data):
+                break
+            
+            search_row = data[start_index + offset]
+            # In your sheet, "System Development" is usually in column 2 (index 1) or 3
+            row_str = " ".join(search_row)
+            
+            if "システム開発" in row_str or "System Development" in row_str:
+                # Once we find the section, the hours are usually in column 12 (index 11)
+                try:
+                    val = search_row[11] if len(search_row) > 11 else "0"
+                    est_hours = float(val) if val else 0.0
+                except (ValueError, TypeError):
+                    est_hours = 1.0 # Fallback for non-numeric
+                
+                # PIC is usually in column 11 (index 10)
+                pic = search_row[10] if len(search_row) > 10 else None
+                break # Stop searching once we found our section
+
         # Validate Backlog ID format (e.g., MD_SD-1234)
         raw_backlog_id = row[9] if len(row) > 9 else None
         backlog_id = None
@@ -89,5 +105,5 @@ class CloudIngestor:
             "content": content_row[3] if len(content_row) > 3 else "",
             "estimated_hours": est_hours,
             "backlog_id": backlog_id,
-            "pic": row[10] if len(row) > 10 else None # Column K
+            "pic": pic
         }
