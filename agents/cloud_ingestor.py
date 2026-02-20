@@ -68,13 +68,20 @@ class CloudIngestor:
         # Content is usually 2 rows below the header in your block format
         content_row = data[start_index + 2] if (start_index + 2) < len(data) else [""] * 10
         
+        # Handle potential non-numeric strings in hours column
+        try:
+            est_hours = float(row[11]) if len(row) > 11 and row[11] else 1.0
+        except (ValueError, TypeError):
+            # If it's a note or empty, fallback to 1.0
+            est_hours = 1.0
+        
         return {
             "row_index": start_index,
             "id": row[0],
             "requester": row[3],
             "date": row[4],
             "content": content_row[3] if len(content_row) > 3 else "",
-            "estimated_hours": float(row[11]) if len(row) > 11 and row[11] else 1.0,
+            "estimated_hours": est_hours,
             "backlog_id": row[9] if len(row) > 9 else None, # Column J
             "pic": row[10] if len(row) > 10 else None # Column K
         }
