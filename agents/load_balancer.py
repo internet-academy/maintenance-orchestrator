@@ -8,17 +8,18 @@ class LoadBalancer:
         self.base_url = f"https://{space_id}.backlog.com/api/v2"
         self.DAILY_LIMIT_HOURS = 6.0
 
-    def get_active_workload(self, user_id):
+    def get_active_workload(self, user_id, project_id=None):
         """
-        Fetches all issues assigned to a user that are NOT closed/merged
-        and sums their estimated hours.
+        Fetches active issues and sums their estimated hours.
         """
         endpoint = f"{self.base_url}/issues"
         params = {
             "apiKey": self.api_key,
             "assigneeId[]": [user_id],
-            "statusId[]": [1, 2, 3], # 1: Open, 2: In Progress, 3: Resolved (Pending Release)
+            "statusId[]": [1, 2], # 1: Open, 2: In Progress (Exclude 3: Resolved)
         }
+        if project_id:
+            params["projectId[]"] = [project_id]
         
         response = requests.get(endpoint, params=params)
         response.raise_for_status()
