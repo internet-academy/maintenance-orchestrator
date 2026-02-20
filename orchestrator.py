@@ -45,7 +45,8 @@ class Orchestrator:
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
-        print(f"\n--- Team Capacity Map (Starting {self.start_date}) ---")
+        display_date = self.start_date if self.start_date else "Today"
+        print(f"\n--- Team Capacity Map (Starting {display_date}) ---")
         for name, dev_id in self.developer_map.items():
             timeline = self.timelines[dev_id]
             # Simple bar chart: [######....]
