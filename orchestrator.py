@@ -33,6 +33,13 @@ class Orchestrator:
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
+        # Initial Load Report
+        print("\n--- Current Team Load (MD_SD Project Only) ---")
+        for name, dev_id in self.developer_map.items():
+            load = self._get_dev_session_load(dev_id)
+            print(f"- {name}: {load}h / {self.load_balancer.DAILY_LIMIT_HOURS}h limit")
+        print("--------------------------------------------\n")
+
         try:
             tasks = self.ingestor.get_live_tasks()
             print(f"Found {len(tasks)} valid tasks in Google Sheets.")
