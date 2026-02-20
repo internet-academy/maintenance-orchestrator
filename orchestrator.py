@@ -68,8 +68,16 @@ class Orchestrator:
         backlog_id = task.get('backlog_id')
         if backlog_id:
             print(f"UPDATE: Found existing Backlog ID {backlog_id}. Updating fields...")
+            
+            # WE MUST STILL CALCULATE THE TIMELINE FOR EXISTING TASKS
+            best_dev = self._find_best_dev(task['estimated_hours'])
+            if best_dev:
+                due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
+                task['deadline'] = due_date
+                print(f"DEBUG: Calculated projected finish for update: {due_date}")
+            
             if self.dry_run:
-                print(f"[DRY RUN] Would update Backlog {backlog_id}")
+                print(f"[DRY RUN] Would update Backlog {backlog_id} with {task['estimated_hours']}h and Deadline {task.get('deadline')}")
                 return
             try:
                 self.load_balancer.update_backlog_issue(backlog_id, task)
