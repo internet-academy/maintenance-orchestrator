@@ -64,6 +64,12 @@ class CloudIngestor:
         # gspread uses 1-based indexing
         worksheet.update_cell(row_index + 1, 10, issue_key)
 
+    def write_status(self, row_index, status_text):
+        """Writes the task status to the 11th column (K) of the status row (offset 9)."""
+        worksheet = self.get_current_month_worksheet()
+        # The status value is at row_index + 9 (0-based) which is +10 (1-based)
+        worksheet.update_cell(row_index + 10, 11, status_text)
+
     def _is_valid(self, task):
         return "2025" not in task['date'] and task['requester'] != ""
 
@@ -75,26 +81,27 @@ class CloudIngestor:
         # SEARCH for the specific row containing 'PIC' and 'Estimated Hours'
         est_hours = 0.0
         pic = None
+        current_status = ""
         for offset in range(1, 15):
             if (start_index + offset) >= len(data):
                 break
             
             search_row = data[start_index + offset]
             
-            # According to inspection, PIC and Estimated Hours are in the same row
+            # PIC and Estimated Hours
             if len(search_row) > 12 and search_row[9] == "PIC" and "Estimated Hours" in search_row[12]:
-                # PIC is in index 10
                 pic = search_row[10].strip() if search_row[10] else None
-                
-                # Hours are in index 13
                 try:
                     val = search_row[13] if len(search_row) > 13 else "0"
                     est_hours = float(val) if val and str(val).strip() else 0.0
                 except (ValueError, TypeError):
-                    est_hours = 1.0 # Fallback
-                break
+                    est_hours = 1.0 
+            
+            # Current Status from Sheet
+            if len(search_row) > 10 and search_row[9] == "Status":
+                current_status = search_row[10].strip()
 
-        # Validate Backlog ID format (e.g., MD_SD-1234)
+        # Validate Backlog ID format
         raw_backlog_id = row[9] if len(row) > 9 else None
         backlog_id = None
         if raw_backlog_id and re.match(r"^[A-Z0-9_]+-\d+$", raw_backlog_id):
@@ -109,5 +116,6 @@ class CloudIngestor:
             "english_translation_fallback": translation_row[3] if len(translation_row) > 3 else "",
             "estimated_hours": est_hours,
             "backlog_id": backlog_id,
-            "pic": pic
+            "pic": pic,
+            "current_sheet_status": current_status
         }
