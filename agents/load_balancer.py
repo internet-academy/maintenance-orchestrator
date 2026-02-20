@@ -118,10 +118,13 @@ class LoadBalancer:
         endpoint = f"{self.base_url}/issues"
         params = {"apiKey": self.api_key}
         
+        # Build an informative title
+        title = f"[ERROR] {task_data.get('title_summary', 'Bug Report')} ({task_data['requester']} - #{task_data['id']})"
+        
         payload = {
             "projectId": 528169, # System Development (MD_SD)
-            "summary": f"[ERROR] {task_data['requester']} - {task_data['id']}",
-            "description": f"Page: {task_data.get('page_url', 'N/A')}\n\nContent:\n{task_data['content']}\n\nChat URL: {task_data.get('chat_url', 'N/A')}",
+            "summary": title,
+            "description": task_data['description'],
             "issueTypeId": 2750765, # バグ (MD_SD Project specific)
             "priorityId": 3,  # Normal
             "assigneeId": user_id,
