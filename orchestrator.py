@@ -1,5 +1,6 @@
 import os
 import json
+import google.generativeai as genai
 from agents.cloud_ingestor import CloudIngestor
 from agents.load_balancer import LoadBalancer, DeveloperTimeline
 from datetime import datetime
@@ -14,6 +15,14 @@ class Orchestrator:
         self.sheet_id = os.getenv('GOOGLE_SHEET_ID')
         self.backlog_key = os.getenv('BACKLOG_API_KEY')
         self.space_id = os.getenv('BACKLOG_SPACE_ID')
+        self.gemini_key = os.getenv('GEMINI_API_KEY')
+
+        if self.gemini_key:
+            genai.configure(api_key=self.gemini_key)
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+        else:
+            print("WARNING: GEMINI_API_KEY not found. Automated translation will be skipped.")
+            self.model = None
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
@@ -24,6 +33,17 @@ class Orchestrator:
             "Raman": 1819362,
             "Ewan": 1880127,
             "Choo": 1052465
+        }
+        
+        # Name Mapping (Localized to English)
+        self.name_mapping = {
+            "鈴木佳子": "Suzuki",
+            "稲葉由衣": "Inaba",
+            "谷川大虎": "Tanikawa",
+            "中村駿吾": "Nakamura",
+            "石井陽介": "Ishii",
+            "榎本智香": "Enomoto",
+            "眞尾由紀子": "Mao"
         }
         
         # Initialize Timelines for all developers
@@ -72,123 +92,63 @@ class Orchestrator:
             print(f"CRITICAL ERROR: {str(e)}")
             traceback.print_exc()
 
+    def _translate_and_summarize(self, text):
+        """Uses Gemini to translate Japanese to English and generate a title."""
+        if not self.model:
+            # Fallback if no Gemini key
+            snippet = text.replace('\n', ' ').strip()[:60] + "..."
+            return snippet, snippet
+
+        prompt = f"""
+        You are a translation assistant for a software development team.
+        Translate the following Japanese bug report/task description into professional English.
+        The translation should be full-text and include all details.
+        
+        Also, provide a very concise (3-7 words) English summary for a ticket title.
+        
+        Output format:
+        TITLE: <Concise Title>
+        TRANSLATION: <Full English Translation>
+        
+        TEXT TO TRANSLATE:
+        {text}
+        """
+        
+        try:
+            response = self.model.generate_content(prompt)
+            result = response.text.strip()
+            
+            title = "Bug Report"
+            translation = text
+            
+            if "TITLE:" in result and "TRANSLATION:" in result:
+                title_part = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip()
+                translation_part = result.split("TRANSLATION:")[1].strip()
+                return title_part, translation_part
+                
+            return title, translation
+        except Exception as e:
+            print(f"ERROR calling Gemini API: {e}")
+            snippet = text.replace('\n', ' ').strip()[:60] + "..."
+            return snippet, snippet
+
     def _generate_bilingual_description(self, task):
-        """Constructs a bilingual description with deep links and full translation."""
+        """Constructs a bilingual description with deep links and automated translation."""
         # Constants for precision linking
         GID = "635134579"
         
-        # Name Mapping (Localized to English)
-        NAME_MAPPING = {
-            "鈴木佳子": "Suzuki",
-            "稲葉由衣": "Inaba",
-            "谷川大虎": "Tanikawa",
-            "中村駿吾": "Nakamura",
-            "石井陽介": "Ishii",
-            "榎本智香": "Enomoto",
-            "眞尾由紀子": "Mao"
-        }
-        
-        # High-Fidelity Preset Translations for existing tasks (Verbatim)
-        PRESET_TRANSLATIONS = {
-            "1": {
-                "title": "Change first session date for student",
-                "en": """Could you please change the first session date for Riho Kano?
-Before: 20250201 12:00
-After: 20260201 12:00
-
-▼Kikuichi URL: https://www.internetacademy.jp/mem/admins/contract/241731?list=1"""
-            },
-            "2": {
-                "title": "LMS Exam time limit discrepancy",
-                "en": """Even if the corporate LMS has a 30-minute time limit for the actual exam, it's possible that the test took longer than 30 minutes. Alternatively, the actual test time and the response time displayed on the LMS may differ. Please confirm this.
-We received a call from a participant at the Information and Communications Equipment Association.
-Dear Yuya Imasu,
-Although the test should be completed within 30 minutes, after taking the test, the response time displayed was '37 minutes 59 seconds.' Furthermore, Imasu believes he responded within 30 minutes.
-Yui Inaba checked Imasu's response time from her administrator account, and it displayed '37 minutes 59 seconds.'
-Admin Account ID: b3724u0126 PW: Qtg4ZTFrc
-Imasu's Personal Account ID: b3724u0129 PW: WVQ34PA7i"""
-            },
-            "3": {
-                "title": "Preserve line breaks in LMS reports",
-                "en": """We received a request from PI Murabayashi-sama regarding the daily report confirmation for the Mitsubishi Motors Corporation training that is currently being conducted. The request is to ensure that line breaks entered by students can be confirmed in the same way on the confirmation screen.
-Since the daily report is necessary for training evaluation (reporting from the instructor to the person in charge on the other side) and is an important item, could you please confirm this?
-
-Below is the message received from Murabayashi-sama:
-Regarding line breaks in LMS
-I advise students to manage their progress quantitatively. And I also recommend using bullet points for numerical parts to make them easier to read. However, as shown below, the line breaks have disappeared and are displayed as a single paragraph. Is it possible to display it so that line breaks are made in the same place where the student inserted them?"""
-            },
-            "4": {
-                "title": "Web Creator page display error",
-                "en": """[Conclusion] The Web Creator Certification guide page is not displaying correctly, so could you please resolve this issue? If this cannot be viewed, students cannot apply for Web Creator, so please respond as soon as possible.
-Regarding the Web Creator Ability Certification guide page, we have confirmed that it is currently not being displayed normally. We have received an inquiry from a student via chat, and we have confirmed here that a similar display problem occurs when actually accessing the URL below.
-
-▼Relevant page (Guide to the Web Creator Certification Exam)
-https://www.internetacademy.jp/bohr/guide09
-▼Previous page linked to the relevant page
-https://www.internetacademy.jp/mem/admins/customer/custom_info/240492/?list=1
-
-▼Student who asked the question
-https://www.internetacademy.jp/mem/admins/customer/custom_info/240492/?list=1"""
-            },
-            "5": {
-                "title": "Block zero-rating feedback submissions",
-                "en": """This month, two feedback sheets have been submitted with ratings of '0 0 0'. Originally, it should not be possible to submit without giving a star rating, so the fact that they are being submitted with '0 0 0' is likely strange in itself.
-I apologize for the inconvenience while you are busy, but please check why this is happening and correct it so that submissions cannot be made with '0 0 0'.
-
-Example:
-2026-02-03(Tue) 11:16 Homepage C 3rd Session Homepage C3(1h 28m) 0 0 0 Mio Takahashi
-2026-02-11(Wed) 22:00 2026-02-11(Wed) Yosuke Ishii PHP 0 0 0 Thank you for today's lesson as well. Today's lesson was easy to understand and helpful. However, as it progresses, the level of difficulty also increases, so it's still difficult. I thought I would review the on-demand content and practice coding in my spare time. Looking forward to tomorrow as well. Kaoru Asano"""
-            },
-            "6": {
-                "title": "Lesson form errors when field unselected",
-                "en": """[Report/Consultation] Abnormal form behavior when 'Field of Interest' is not selected. When conducting a test CV without selecting 'Field of Interest', the following errors occur:
-
-■Test Environment
-Target Form: /lesson/
-https://www.internetacademy.jp/lesson/
-
-■Confirmed Phenomena (2 points)
-1. Reservation Time Slot Error: Even when choosing a clearly available date, it displays 'The reservation time slot is already full. Please try another time slot.' and the CV does not go through.
-2. Unexpected Error: While it displays 'An unexpected error occurred. Please try again.', the CV actually goes through normally (mismatch between screen and action).
-
-The phenomenon of the reservation form not working correctly when 'Field of Interest' is not selected is continuing to occur. Since it affects user experience, I believe emergency measures can be taken by making it a 'required' item. I apologize for the inconvenience while you are busy, but I would appreciate your confirmation/response."""
-            },
-            "7": {
-                "title": "Incorrect course name on certificates",
-                "en": """Problem with course name display on Enrollment Certificates. When printing an enrollment certificate in Kikuichi, the course name is displayed as 'Introduction to SNS Marketing from Scratch'. Since this course is a campaign course, it must be set to correctly display 'Introduction to SNS Marketing from Scratch (Campaign)'. Please correct this.
-
-Please confirm on Hanako Narahira's enrollment certificate page.
-Hanako Narahira
-https://www.internetacademy.jp/mem/admins/school/application_enroll/239895"""
-            },
-            "9": {
-                "title": "UI improvement for enrollment terms screen",
-                "en": """The screens for confirming terms and conditions at the time of enrollment are difficult to use, and we have received feedback from students. Please review the UI design."""
-            }
-        }
-        
-        task_id = str(task['id'])
-        preset = PRESET_TRANSLATIONS.get(task_id)
-        
-        # Determine Title Summary and English Translation
-        if preset:
-            title_summary = preset['title']
-            en_translation = preset['en']
-        else:
-            # Fallback for new tasks
-            clean_content = task['content'].replace('\n', ' ').strip()
-            title_summary = clean_content[:60] + "..." if len(clean_content) > 60 else clean_content
-            en_translation = title_summary # This should ideally be replaced by a real LLM call
+        # Determine Title Summary and English Translation via Gemini
+        title_summary, en_translation = self._translate_and_summarize(task['content'])
             
         # Get localized name
-        romaji_name = NAME_MAPPING.get(task['requester'], task['requester'])
+        romaji_name = self.name_mapping.get(task['requester'], task['requester'])
         
         # Construct Precision Sheet Link
         row = task['row_index'] + 1
         sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit?gid={GID}#gid={GID}&range=B{row}:C{row}"
         
         # Build Description Body
-        description = f"ID: {task_id}\n"
+        description = f"ID: {task['id']}\n"
         description += f"Sheet Link: {sheet_link}\n\n"
         description += f"## English Translation\n\n{en_translation}\n\n"
         description += f"## 原文 (Japanese)\n\n{task['content']}"
