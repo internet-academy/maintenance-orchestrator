@@ -152,27 +152,21 @@ class Orchestrator:
             print(f"ERROR posting to Google Chat: {e}")
 
     def _send_daily_report(self, all_tasks):
-        """Aggregates open tasks and posts to the daily thread."""
+        """Aggregates all open tasks into a single consolidated message."""
         today_str = datetime.now().strftime("%Y%m%d")
         thread_key = f"daily_report_{today_str}"
         
-        # 1. Create/Update Header
-        header = f"Daily Report {today_str}"
-        print(f"REPORT: Sending {header} to Google Chat...")
-        if self.dry_run:
-            print(f"[DRY RUN] Would post header: {header}")
-        else:
-            self._post_to_chat(header, thread_key=thread_key)
+        # 1. Build the Report Header
+        full_report = f"📅 *Daily Report {today_str}*\n"
+        full_report += "________________________________\n\n"
 
-        # 2. Group tasks by current PIC (based on Sheet PIC or load balancer assignment)
-        # Note: In a real run, we look at current_sheet_status
+        # 2. Group tasks by current PIC
         report_data = {}
         for task in all_tasks:
             status = task.get('current_sheet_status', '').lower()
             if "complete" in status or "closed" in status or "resolved" in status:
                 continue
             
-            # We look at the PIC column in the sheet
             pic_name = task.get('pic')
             if not pic_name:
                 continue
@@ -180,21 +174,26 @@ class Orchestrator:
             if pic_name not in report_data:
                 report_data[pic_name] = []
             
-            # Use the English summary we generated earlier if available
             title = task.get('title_summary', task['content'][:50])
-            report_data[pic_name].append(f"- [{task.get('backlog_id', 'NEW')}] {title}")
+            report_data[pic_name].append(f"• [{task.get('backlog_id', 'NEW')}] {title}")
 
-        # 3. Send individual messages for each PIC
-        for name, tasks in report_data.items():
-            chat_id = self.chat_ids.get(name, name)
-            mention = f"<users/{chat_id}>" if chat_id.isdigit() else f"@{name}"
-            
-            msg = f"{mention} here are your tasks for today:\n" + "\n".join(tasks)
-            
-            if self.dry_run:
-                print(f"[DRY RUN] Would post task list for {name}: {msg}")
-            else:
-                self._post_to_chat(msg, thread_key=thread_key)
+        # 3. Build the single message body
+        if not report_data:
+            full_report += "✅ No open tasks for today!"
+        else:
+            for name, tasks in report_data.items():
+                chat_id = self.chat_ids.get(name, name)
+                # If chat_id is numeric, use mention format, otherwise use plain text name
+                mention = f"<users/{chat_id}>" if chat_id.isdigit() else f"*{name}*"
+                
+                full_report += f"{mention}\n" + "\n".join(tasks) + "\n\n"
+
+        # 4. Post the entire report as ONE message
+        print(f"REPORT: Sending consolidated Daily Report to Google Chat...")
+        if self.dry_run:
+            print(f"[DRY RUN] Would post consolidated report:\n{full_report}")
+        else:
+            self._post_to_chat(full_report, thread_key=thread_key)
 
     def _translate_and_summarize(self, text, fallback_translation=""):
         """Uses Gemini to translate Japanese to English and generate a title."""
