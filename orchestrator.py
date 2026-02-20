@@ -100,15 +100,16 @@ class Orchestrator:
     def _get_or_create_parent_task(self, target_date_str):
         """
         Determines the parent task summary based on the target date's month end.
-        Finds or creates the parent '◆リクエラ(YYYY/MM/DD)' task.
+        Finds or creates the parent '◆リクエラ(YYYY/M/D)' task.
         """
         # Parse date and find end of month
         dt = datetime.strptime(target_date_str, "%Y-%m-%d")
         import calendar
         last_day = calendar.monthrange(dt.year, dt.month)[1]
-        month_end_str = dt.replace(day=last_day).strftime("%Y/%m/%d")
         
-        summary = f"◆リクエラ({month_end_str})"
+        # Format: YYYY/M/D (no leading zeros for M/D)
+        month_end_label = f"{dt.year}/{dt.month}/{last_day}"
+        summary = f"◆リクエラ({month_end_label})"
         project_id = 528169
         
         # 1. Search for existing
