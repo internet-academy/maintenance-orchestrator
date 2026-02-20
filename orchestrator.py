@@ -22,13 +22,12 @@ class Orchestrator:
         # In-memory tracking for this specific run to prevent over-assignment
         self.session_load = {} # { dev_id: running_total_hours }
 
-        # Confirmed Developer Mapping
-        # TODO: Replace these placeholder IDs with real Backlog User IDs
+        # Real Developer Mapping for i-academy space
         self.developer_map = {
-            "Saurabh": 101,
-            "Raman": 102,
-            "Ewan": 103,
-            "Choo": 104
+            "Saurabh": 984450,
+            "Raman": 1819362,
+            "Ewan": 1880127,
+            "Choo": 1052465
         }
 
     def run(self):
