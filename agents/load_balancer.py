@@ -55,6 +55,18 @@ class DeveloperTimeline:
     def get_today_usage(self):
         return self.buckets[0]['used']
 
+    def peek_fill(self, hours):
+        """Simulates pouring hours to find the end date without modifying buckets."""
+        remaining = float(hours)
+        last_date = None
+        for bucket in self.buckets:
+            if remaining <= 0: break
+            can_take = min(remaining, bucket['remaining'])
+            if can_take > 0:
+                remaining -= can_take
+                last_date = bucket['date']
+        return last_date if remaining <= 0 else None
+
 class LoadBalancer:
     def __init__(self, api_key, space_id):
         self.api_key = api_key
