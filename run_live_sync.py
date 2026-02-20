@@ -18,8 +18,7 @@ def run_live_sync():
     # 2. Execute
     orchestrator.run()
     
-    print("
-✅ LIVE SYNC COMPLETE ✅")
+    print("\n✅ LIVE SYNC COMPLETE ✅")
 
 if __name__ == "__main__":
     run_live_sync()
