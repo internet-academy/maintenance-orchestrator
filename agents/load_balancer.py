@@ -99,16 +99,16 @@ class LoadBalancer:
         Updates an existing issue in Backlog.
         """
         endpoint = f"{self.base_url}/issues/{issue_id_or_key}"
+        params = {"apiKey": self.api_key}
         
         payload = {
-            "apiKey": self.api_key,
             "estimatedHours": task_data.get('estimated_hours'),
             "dueDate": task_data.get('deadline', '')
         }
         # Only include fields that are present to avoid clearing data
         payload = {k: v for k, v in payload.items() if v is not None}
         
-        response = requests.patch(endpoint, data=payload)
+        response = requests.patch(endpoint, params=params, data=payload)
         response.raise_for_status()
         return response.json()
 
@@ -117,11 +117,11 @@ class LoadBalancer:
         Creates a new issue in Backlog.
         """
         endpoint = f"{self.base_url}/issues"
+        params = {"apiKey": self.api_key}
         
         # Mapping the Ingestor's task data to Backlog's API fields
         payload = {
-            "apiKey": self.api_key,
-            "projectId": self._get_project_id(),
+            "projectId": 528169, # System Development (MD_SD)
             "summary": f"[ERROR] {task_data['requester']} - {task_data['id']}",
             "description": f"Page: {task_data.get('page_url', 'N/A')}\n\nContent:\n{task_data['content']}\n\nChat URL: {task_data.get('chat_url', 'N/A')}",
             "issueTypeId": 1, # Bug
@@ -131,7 +131,7 @@ class LoadBalancer:
             "dueDate": task_data.get('deadline', '')
         }
         
-        response = requests.post(endpoint, data=payload)
+        response = requests.post(endpoint, params=params, data=payload)
         response.raise_for_status()
         return response.json()
 
