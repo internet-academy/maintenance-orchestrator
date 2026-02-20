@@ -1,5 +1,6 @@
 import requests
 import os
+import holidays
 from datetime import datetime, timedelta
 
 class DeveloperTimeline:
@@ -8,15 +9,22 @@ class DeveloperTimeline:
         self.daily_limit = daily_limit
         self.buckets = [] # List of {'date': date, 'used': hours, 'remaining': hours}
         
+        # Initialize Japanese holidays
+        jp_holidays = holidays.Japan()
+        
         current = datetime.now()
         while len(self.buckets) < days_count:
-            # Skip weekends (5: Saturday, 6: Sunday)
-            if current.weekday() < 5:
+            # Skip weekends (5: Sat, 6: Sun) AND Japanese public holidays
+            is_holiday = current.strftime("%Y-%m-%d") in jp_holidays
+            if current.weekday() < 5 and not is_holiday:
                 self.buckets.append({
                     'date': current.strftime("%Y-%m-%d"),
                     'used': 0.0,
                     'remaining': daily_limit
                 })
+            elif is_holiday:
+                print(f"DEBUG: {name}'s timeline skipping Japanese Holiday: {current.strftime('%Y-%m-%d')} ({jp_holidays.get(current)})")
+            
             current += timedelta(days=1)
 
     def fill_hours(self, hours):
