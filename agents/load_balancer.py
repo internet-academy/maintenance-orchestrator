@@ -96,18 +96,35 @@ class LoadBalancer:
 
     def update_backlog_issue(self, issue_id_or_key, task_data):
         """
-        Updates an existing issue in Backlog.
+        Updates an existing issue in Backlog. 
+        Only updates fields provided in task_data.
         """
         endpoint = f"{self.base_url}/issues/{issue_id_or_key}"
         params = {"apiKey": self.api_key}
         
-        payload = {
-            "estimatedHours": task_data.get('estimated_hours'),
-            "dueDate": task_data.get('deadline', '')
+        # Map internal keys to Backlog API keys
+        mapping = {
+            'estimated_hours': 'estimatedHours',
+            'deadline': 'dueDate',
+            'description': 'description',
+            'summary': 'summary',
+            'assignee_id': 'assigneeId'
         }
-        # Only include fields that are present to avoid clearing data
-        payload = {k: v for k, v in payload.items() if v is not None}
         
+        payload = {}
+        for internal_key, api_key in mapping.items():
+            if internal_key in task_data:
+                payload[api_key] = task_data[internal_key]
+        
+        # If the specialist passed direct Backlog API keys, include those too
+        for k, v in task_data.items():
+            if k in ['description', 'summary', 'estimatedHours', 'dueDate', 'assigneeId']:
+                payload[k] = v
+
+        if not payload:
+            print(f"DEBUG: No update payload generated for {issue_id_or_key}")
+            return
+            
         response = requests.patch(endpoint, params=params, data=payload)
         response.raise_for_status()
         return response.json()
