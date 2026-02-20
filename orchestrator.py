@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 from google import genai
 from agents.cloud_ingestor import CloudIngestor
 from agents.load_balancer import LoadBalancer, DeveloperTimeline
@@ -16,6 +17,10 @@ class Orchestrator:
         self.backlog_key = os.getenv('BACKLOG_API_KEY')
         self.space_id = os.getenv('BACKLOG_SPACE_ID')
         self.gemini_key = os.getenv('GEMINI_API_KEY')
+        
+        # State tracking to prevent redundant updates
+        self.state_file = "sync_state.json"
+        self.state = self._load_state()
 
         if self.gemini_key:
             self.client = genai.Client(api_key=self.gemini_key)
@@ -62,6 +67,25 @@ class Orchestrator:
             
             self.timelines[dev_id] = timeline
 
+    def _load_state(self):
+        if os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    def _save_state(self):
+        if not self.dry_run:
+            with open(self.state_file, 'w') as f:
+                json.dump(self.state, f, indent=2)
+
+    def _get_task_hash(self, task):
+        """Generates a hash of the raw task content to detect changes."""
+        content = f"{task['content']}|{task['estimated_hours']}"
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
@@ -86,6 +110,8 @@ class Orchestrator:
 
             for task in tasks:
                 self.process_task(task)
+            
+            self._save_state()
 
         except Exception as e:
             import traceback
