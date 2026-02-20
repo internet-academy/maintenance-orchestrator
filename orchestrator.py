@@ -77,9 +77,9 @@ class Orchestrator:
         return {}
 
     def _save_state(self):
-        if not self.dry_run:
-            with open(self.state_file, 'w') as f:
-                json.dump(self.state, f, indent=2)
+        # We allow saving state in dry_run mode for validation purposes
+        with open(self.state_file, 'w') as f:
+            json.dump(self.state, f, indent=2)
 
     def _get_task_hash(self, task):
         """Generates a hash of the raw task content to detect changes."""
