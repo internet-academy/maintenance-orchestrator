@@ -207,12 +207,39 @@ class Orchestrator:
 
         # 1. Update Detection & Ownership Verification
         backlog_id = task.get('backlog_id')
+        latest_backlog_issue = None
+        
         if backlog_id:
             # NEW: Verify that this ID wasn't just copy-pasted from another row
             is_rightful_owner = self._verify_ownership(backlog_id, task)
             
             if is_rightful_owner:
                 print(f"UPDATE: Found verified Backlog ID {backlog_id} (Req: {romaji_name}). Updating fields...")
+                
+                # Fetch full issue to get latest status
+                try:
+                    latest_backlog_issue = self.load_balancer.get_issue(backlog_id)
+                    
+                    # --- REVERSE STATUS SYNC ---
+                    backlog_status = latest_backlog_issue.get('status', {}).get('name')
+                    sheet_status = task.get('current_sheet_status', '')
+                    
+                    # Map Backlog name to Sheet display
+                    status_map = {
+                        "Open": "Open",
+                        "In Progress": "In Progress",
+                        "Resolved": "Resolved",
+                        "Closed": "Complete!"
+                    }
+                    mapped_status = status_map.get(backlog_status, backlog_status)
+                    
+                    if mapped_status and mapped_status != sheet_status:
+                        print(f"STATUS SYNC: Backlog ({mapped_status}) != Sheet ({sheet_status}). Updating Sheet...")
+                        if not self.dry_run:
+                            self.ingestor.write_status(task['row_index'], mapped_status)
+                except Exception as e:
+                    print(f"WARNING: Could not fetch latest status for {backlog_id}: {e}")
+
                 # CALCULATE TIMELINE FOR UPDATES
                 best_dev = self._find_best_dev(task['estimated_hours'])
                 if best_dev:
