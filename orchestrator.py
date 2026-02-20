@@ -167,21 +167,28 @@ class Orchestrator:
             issue = self.load_balancer.get_issue(backlog_id)
             desc = issue.get('description', '')
             
-            # 1. Primary Check: Unique Task ID (e.g., "ID: 1")
+            # 1. Primary Check: Unique Task ID stamp (e.g., "ID: 1")
             id_marker = f"ID: {task['id']}\n"
             if id_marker in desc:
                 return True
                 
-            # 2. Secondary Check: Sheet Link range (e.g., "range=B20:C20")
+            # 2. Secondary Check: Sheet Link range (Flexible matching)
             row_num = task['row_index'] + 1
-            range_pattern = fr"range=B{row_num}:C{row_num}"
-            if range_pattern in desc:
-                return True
+            # Check for range=A20, range=B20, or range=B20:C20
+            patterns = [
+                f"range=A{row_num}",
+                f"range=B{row_num}",
+                f"range=B{row_num}:C{row_num}"
+            ]
             
-            print(f"⚠️ COLLISION DETECTED: {backlog_id} belongs to a different row (ID or Range mismatch).")
+            for p in patterns:
+                if p in desc:
+                    return True
+            
+            print(f"⚠️ COLLISION DETECTED: {backlog_id} belongs to a different row.")
             return False
         except Exception as e:
-            print(f"DEBUG: Could not verify ownership for {backlog_id} (might be deleted): {e}")
+            print(f"DEBUG: Could not verify ownership for {backlog_id}: {e}")
             return False
 
     def process_task(self, task):
