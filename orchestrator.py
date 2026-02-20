@@ -26,19 +26,18 @@ class Orchestrator:
             "Choo": 1052465
         }
         
-        # Initialize Timelines for all developers
+        # Initialize Timelines for all developers starting March 2nd
+        self.start_date = "2026-03-02"
         self.timelines = {}
         for name, dev_id in self.developer_map.items():
-            timeline = DeveloperTimeline(name)
-            # Pre-fill with actual Backlog load (last 7 days)
-            actual_load = self.load_balancer.get_active_workload(dev_id, project_id=528169)
-            timeline.fill_hours(actual_load)
+            # For this run, we start fresh on March 2nd as core team is busy until then
+            timeline = DeveloperTimeline(name, start_date=self.start_date)
             self.timelines[dev_id] = timeline
 
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
-        print("\n--- Team Capacity Map (Next 14 Days) ---")
+        print(f"\n--- Team Capacity Map (Starting {self.start_date}) ---")
         for name, dev_id in self.developer_map.items():
             timeline = self.timelines[dev_id]
             # Simple bar chart: [######....]
@@ -49,7 +48,7 @@ class Orchestrator:
                 elif fill_ratio > 0.5: bars += "▓"
                 elif fill_ratio > 0: bars += "░"
                 else: bars += "."
-            print(f"{name.ljust(8)} [{bars}] today usage: {timeline.get_today_usage()}h")
+            print(f"{name.ljust(8)} [{bars}] first day usage: {timeline.get_today_usage()}h")
         print("--------------------------------------------\n")
 
         try:
