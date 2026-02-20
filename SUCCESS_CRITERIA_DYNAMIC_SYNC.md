@@ -1,12 +1,13 @@
-# SUCCESS_CRITERIA: Dynamic Real-Time Scheduling
+# SUCCESS_CRITERIA: Full Change Detection (Stateful Sync)
 
-## 1. Timeline Initialization (Technical)
-- [ ] **Default to Today**: The `DeveloperTimeline` must default to the current system date (`datetime.now()`) if no override is provided.
-- [ ] **Environment Override**: Support an environment variable `SYNC_START_DATE` to allow manual shifting of the timeline without changing code.
+## 1. Hashing (Technical)
+- [ ] **Content Hashing**: Implement a method to generate a SHA-256 hash of the "Task Content" (Japanese + Hours).
+- [ ] **Local State Persistence**: Save these hashes in a local `project_states.json` file, mapped by Backlog ID.
 
-## 2. Load Awareness (Functional)
-- [ ] **Continuous Pre-fill**: For every run, the system must fetch current active load from Backlog to ensure new assignments don't conflict with work already in progress.
-- [ ] **7-Day Window**: Maintain the "Freshness Filter" (last 7 days) to ignore zombie tasks.
+## 2. Selective Backlog Updates (Functional)
+- [ ] **Change Detection**: Before calling `update_backlog_issue`, compare the current row's hash against the stored hash.
+- [ ] **Skip Logic**: If the hashes match, skip the Backlog PATCH request.
+- [ ] **Logging**: Log "SKIP: No changes detected for MD_SD-XXXX" to keep the logs clean.
 
-## 3. Deployment Safety (Ops)
-- [ ] Ensure the GitHub Actions workflow does not have a hard-coded date, allowing it to naturally progress with the calendar.
+## 3. Execution (Ops)
+- [ ] **Clean Run**: Verify that on a second run with no changes, zero Backlog API mutations occur.
