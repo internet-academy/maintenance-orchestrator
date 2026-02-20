@@ -1,19 +1,17 @@
-# SUCCESS_CRITERIA: Backlog Data Integrity
+# SUCCESS_CRITERIA: Reverse Status Synchronization
 
-## 1. Mandatory Fields (Functional)
-- [ ] **Summary**: Formatted as `[ERROR] {Requester} - {ID}` for quick identification.
-- [ ] **Description**: Must include:
-    - [ ] Target Page URL.
-    - [ ] Clear problem description (from the Sheet's content row).
-    - [ ] Link back to the original Google Chat message (if available).
-- [ ] **Metadata**:
-    - [ ] Assignee ID (Correctly mapped).
-    - [ ] Estimated Hours (Parsed from System Development section).
-    - [ ] Priority (Default: Normal).
+## 1. Status Mapping (Technical)
+- [ ] **Backlog to Sheet Mapping**: Map Backlog status names to spreadsheet-friendly terms:
+    - `Open` -> `Open`
+    - `In Progress` -> `In Progress`
+    - `Resolved` -> `Resolved`
+    - `Closed` -> `Complete!` (or equivalent)
+- [ ] **Location Discovery**: Implement logic to find the "Status" value cell within each task block (currently observed at `offset 9`, `Column K`).
 
-## 2. Data Validation (Technical)
-- [ ] **URL Integrity**: Ensure URLs are valid and not truncated.
-- [ ] **String Sanitation**: Remove unnecessary whitespace or newlines from the summary and description.
+## 2. Bidirectional Awareness (Functional)
+- [ ] **Selective Updates**: Only update the spreadsheet if the Backlog status has changed to minimize API calls and avoid "flapping."
+- [ ] **Existing Task Logic**: During the `UPDATE` flow in `Orchestrator`, fetch the latest status from the Backlog issue object.
 
-## 3. Feedback Loop (Ops)
-- [ ] The Backlog Issue Key MUST be unique and searchable.
+## 3. Execution (Ops)
+- [ ] **Test Run**: Perform a dry run where status changes are detected and "would be" written to the sheet.
+- [ ] **Live Run**: Successfully update the "System Development" section status for at least one task.
