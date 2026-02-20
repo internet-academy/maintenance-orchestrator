@@ -1,14 +1,10 @@
-# SUCCESS_CRITERIA: Time-Gated Daily Reporting
+# SUCCESS_CRITERIA: Precision Parent Naming (◆リクエラ)
 
-## 1. Scheduling (Technical)
-- [ ] **State-Based Suppression**: Store the `last_report_date` in `sync_state.json`.
-- [ ] **Hour Gating**: Only allow the report to trigger during a specific hour (Default: 9 AM).
-- [ ] **Timezone Awareness**: Provide an environment variable `REPORT_HOUR` to allow the user to align with their local time (JST vs UTC).
+## 1. String Formatting (Technical)
+- [ ] **No Leading Zeros**: Format months and days without leading zeros (e.g., `2/28` instead of `02/28`).
+- [ ] **Year Inclusion**: Keep the `YYYY/` prefix for long-term data integrity.
+- [ ] **Exact Match**: The generated summary must be `◆リクエラ(YYYY/M/D)` where `D` is the last day of the month.
 
-## 2. Robustness (Functional)
-- [ ] **Exactly Once**: Ensure that even with 20-minute runs, the report is only sent **once** during the 9 AM hour.
-- [ ] **Continuous Sync**: Confirm that task creation and status updates still occur every 20 minutes regardless of the report status.
-
-## 3. Verification (Ops)
-- [ ] **Logic Test**: Verify that the report is skipped if the current hour does not match the target.
-- [ ] **State Check**: Confirm that `sync_state.json` correctly records the date after a successful report.
+## 2. Verification (Ops)
+- [ ] **Dry Run Trace**: Log: `HIERARCHY: Linking to Parent '◆リクエラ(2026/2/28)'`.
+- [ ] **Transition Check**: Confirm that a task finishing in March is linked to `◆リクエラ(2026/3/31)`.
