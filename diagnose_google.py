@@ -23,8 +23,7 @@ def diagnose_permissions():
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
         
-        print("
---- 1. Testing Drive visibility ---")
+        print("\n--- 1. Testing Drive visibility ---")
         # List all spreadsheets visible to this service account
         files = client.list_spreadsheet_files()
         if not files:
@@ -36,8 +35,7 @@ def diagnose_permissions():
                 if f['id'] == sheet_id:
                     print("  >> FOUND MATCH! The ID in .env is correct.")
 
-        print("
---- 2. Direct Access Test ---")
+        print("\n--- 2. Direct Access Test ---")
         try:
             client.open_by_key(sheet_id)
             print("SUCCESS: Direct access to sheet is working now.")
