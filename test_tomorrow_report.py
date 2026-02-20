@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def run_tomorrow_report_test():
-    print("--- Testing 'Daily Report' for Tomorrow (2026-02-21) ---")
+    print("--- Testing 'Daily Report' for Tomorrow (Simulation) ---")
     
     # 1. Initialize Orchestrator in Dry Run mode
     orchestrator = Orchestrator(dry_run=True)
@@ -20,7 +20,7 @@ def run_tomorrow_report_test():
             "pic": "Saurabh",
             "content": "Request to change the first session date for student",
             "title_summary": "Update enrollment date for Riho Kano",
-            "current_sheet_status": "In Progress" # Forcing this to show in report
+            "current_sheet_status": "In Progress"
         },
         {
             "id": "2",
@@ -29,48 +29,40 @@ def run_tomorrow_report_test():
             "pic": "Raman",
             "content": "Possible issue with exam time limits",
             "title_summary": "LMS Exam Time Limit Discrepancy",
-            "current_sheet_status": "" # Empty status should also show
+            "current_sheet_status": ""
         }
     ]
 
-    # 3. Temporarily override the date generation in the instance
+    # 3. Simulate Tomorrow
     tomorrow = datetime.now() + timedelta(days=1)
     tomorrow_str = tomorrow.strftime("%Y%m%d")
     
-    print(f"DEBUG: Simulating Date: {tomorrow_str}")
+    print(f"DEBUG: Simulating Date: {tomorrow_str}\n")
     
-    # Manually trigger the internal report method with our mock data
-    # We use a wrapper to use our simulated date
-    def mocked_send_report(all_tasks):
-        thread_key = f"daily_report_{tomorrow_str}"
-        header = f"Daily Report {tomorrow_str}"
+    thread_key = f"daily_report_{tomorrow_str}"
+    header = f"Daily Report {tomorrow_str}"
+    
+    print(f"[REPORT PREVIEW]")
+    print(f"Target Thread Key: {thread_key}")
+    print(f"Message 1 (Header): {header}")
+    
+    report_data = {}
+    for task in mock_tasks:
+        pic_name = task.get('pic')
+        if not pic_name: continue
+        if pic_name not in report_data:
+            report_data[pic_name] = []
         
-        print(f"
-[REPORT PREVIEW]")
-        print(f"Target Thread Key: {thread_key}")
-        print(f"Message 1 (Header): {header}")
-        
-        report_data = {}
-        for task in all_tasks:
-            pic_name = task.get('pic')
-            if not pic_name: continue
-            if pic_name not in report_data:
-                report_data[pic_name] = []
-            
-            title = task.get('title_summary', task['content'][:50])
-            report_data[pic_name].append(f"- [{task.get('backlog_id', 'NEW')}] {title}")
+        title = task.get('title_summary', task['content'][:50])
+        report_data[pic_name].append(f"- [{task.get('backlog_id', 'NEW')}] {title}")
 
-        for name, tasks in report_data.items():
-            chat_id = orchestrator.chat_ids.get(name, name)
-            mention = f"<users/{chat_id}>" if chat_id.isdigit() else f"@{name}"
-            msg = f"{mention} here are your tasks for today:
-" + "
-".join(tasks)
-            print(f"Message (PIC: {name}): {msg}")
+    for name, tasks in report_data.items():
+        chat_id = orchestrator.chat_ids.get(name, name)
+        mention = f"<users/{chat_id}>" if chat_id.isdigit() else f"@{name}"
+        msg = f"{mention} here are your tasks for today:\n" + "\n".join(tasks)
+        print(f"Message (PIC: {name}): {msg}")
 
-    mocked_send_report(mock_tasks)
-    print("
---- Test Complete ---")
+    print("\n--- Test Complete ---")
 
 if __name__ == "__main__":
     run_tomorrow_report_test()
