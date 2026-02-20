@@ -108,7 +108,7 @@ FINAL_MESSAGE: [Your handoff message to the next agent or user]
 NEXT_AGENT: [The name of the next agent or 'User' or 'COMPLETED']
 """
 
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
     response = model.generate_content(prompt).text
     
     # Basic Loop for Command Execution
