@@ -1,8 +1,12 @@
+
 import os
 import requests
 from dotenv import load_dotenv
 
 load_dotenv('/home/min/projects/personal-agents/.env')
+
+SHEET_ID = "1uxL0PPH0Y3W7sNEJhmwjVFSgh2scPpvXYFycaGGbW28"
+SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
 
 TASKS = {
     "MD_SD-1249": {
@@ -17,7 +21,7 @@ After: 20260201 12:00
 変更後：20260201 1200
 
 ▼菊一URL：https://www.internetacademy.jp/mem/admins/contract/241731?list=1""",
-        "req": "鈴木佳子", "id": "1"
+        "req": "Suzuki", "id": "1"
     },
     "MD_SD-1250": {
         "title": "LMS Exam time limit discrepancy",
@@ -36,7 +40,7 @@ Imasu's Personal Account ID: b3724u0129 PW: WVQ34PA7i""",
 稲葉由衣が管理者アカウントから井桝様の回答時間を確認しましたが、「37分59秒」の表示でした。
 管理者アカウント　ID ：b3724u0126　PW:　Qtg4ZTFrc
 井桝様ご本人のアカウント　ID ：b3724u0129　PW:　WVQ34PA7i""",
-        "req": "稲葉由衣", "id": "2"
+        "req": "Inaba", "id": "2"
     },
     "MD_SD-1251": {
         "title": "Preserve line breaks in LMS reports",
@@ -62,7 +66,7 @@ LMSの改行について
 
 しかし、以下のように改行が無くなって１つのパラグラフで表示されています。
 受講生が改行を入れた場所で、同じように改行されるように表示して頂く事は可能でしょうか？""",
-        "req": "谷川大虎", "id": "3"
+        "req": "Tanikawa", "id": "3"
     },
     "MD_SD-1252": {
         "title": "Web Creator page display error",
@@ -91,7 +95,7 @@ https://www.internetacademy.jp/mem/admins/customer/custom_info/240492/?list=1
 
 ▼ご質問いただいた受講生様
 https://www.internetacademy.jp/mem/admins/customer/custom_info/240492/?list=1""",
-        "req": "中村駿吾", "id": "4"
+        "req": "Nakamura", "id": "4"
     },
     "MD_SD-1253": {
         "title": "Block zero-rating feedback submissions",
@@ -113,10 +117,10 @@ Example:
 2026-02-03(火) 11:16         ホームページC         第3回         ホームページC3(1時間28分)         0         0         0                 
 髙橋澪
 
-2026-02-11(水) 22:00         2026-02-11(水)         石井陽介         PHP         0         0         0         本日の授業もありがとうございました。 今日の授業もわかりやすく教えて頂き助かりました。ですが進むにつれて難易度も増してくるので、やっぱり難しいですね。オンデマンドも見返して隙間時間にコード練習しようと思いました。
-明日もよろしくお願いします。         
+2026-02-11(水) 22:00         2026-02-11(水)         石井陽介         PHP         0         0         0         本日の授業もありがとうございました. 今日の授業もわかりやすく教えて頂き助かりました. ですが進むにつれて難易度も増してくるので, やっぱり難しいですね. オンデマンドも見返して隙間時間にコード練習しようと思いました.
+明日もよろしくお願いします.         
 浅野薫""",
-        "req": "石井陽介", "id": "5"
+        "req": "Ishii", "id": "5"
     },
     "MD_SD-1254": {
         "title": "Lesson form errors when field unselected",
@@ -149,7 +153,7 @@ https://www.internetacademy.jp/lesson/
 「興味がある分野」未選択時に、予約フォームで正常動作しない事象が引き続き発生しています。
 ユーザー体験に影響するため、「必須」項目にすることで一旦応急処置はできると考えております。
 ご多用のところ恐れ入りますが、ご確認/ご対応いただけますと幸いです。""",
-        "req": "榎本智香", "id": "6"
+        "req": "Enomoto", "id": "6"
     },
     "MD_SD-1255": {
         "title": "Incorrect course name on certificates",
@@ -169,25 +173,30 @@ https://www.internetacademy.jp/mem/admins/school/application_enroll/239895""",
 受講生様の奈良平華子様の在学証明書のページでご確認ください。
 奈良平華子さま
 https://www.internetacademy.jp/mem/admins/school/application_enroll/239895""",
-        "req": "眞尾由紀子", "id": "7"
+        "req": "Mao", "id": "7"
     },
     "MD_SD-1256": {
         "title": "UI improvement for enrollment terms screen",
         "en": """The screens for confirming terms and conditions at the time of enrollment are difficult to use, and we have received feedback from students. Please review the UI design.""",
         "jp": """入校時の約款確認などの画面が使いづらく、受講生からご意見をいただきました。
 UI設計の見直しをお願いします。""",
-        "req": "鈴木佳子", "id": "9"
+        "req": "Suzuki", "id": "9"
     }
 }
 
-def run_fix():
+def run_polish():
     api_key = os.getenv('BACKLOG_API_KEY')
     space_id = os.getenv('BACKLOG_SPACE_ID')
     base_url = f"https://{space_id}.backlog.com/api/v2"
     
     for key, data in TASKS.items():
+        # 1. Final Title (Localized Name)
         full_title = f"[ERROR] {data['title']} ({data['req']} - #{data['id']})"
-        desc = f"## English Translation\n\n{data['en']}\n\n## 原文 (Japanese)\n\n{data['jp']}"
+        
+        # 2. Description with ID/Link Header
+        header = f"**Sheet ID**: {SHEET_ID}\n**Original Sheet**: [Click here to view in Google Sheets]({SHEET_URL})\n\n"
+        desc = header + f"## English Translation\n\n{data['en']}\n\n## 原文 (Japanese)\n\n{data['jp']}"
+        
         url = f"{base_url}/issues/{key}"
         params = {"apiKey": api_key}
         payload = {"summary": full_title, "description": desc}
@@ -195,9 +204,9 @@ def run_fix():
         try:
             r = requests.patch(url, params=params, data=payload)
             r.raise_for_status()
-            print(f"SUCCESS: {key} updated.")
+            print(f"SUCCESS: {key} polished.")
         except Exception as e:
-            print(f"ERROR: Failed to fix {key}: {e}")
+            print(f"ERROR: Failed to polish {key}: {e}")
 
 if __name__ == "__main__":
-    run_fix()
+    run_polish()
