@@ -4,7 +4,7 @@ import holidays
 from datetime import datetime, timedelta
 
 class DeveloperTimeline:
-    def __init__(self, name, daily_limit=6.0, days_count=14):
+    def __init__(self, name, daily_limit=6.0, days_count=14, start_date=None):
         self.name = name
         self.daily_limit = daily_limit
         self.buckets = [] # List of {'date': date, 'used': hours, 'remaining': hours}
@@ -12,7 +12,11 @@ class DeveloperTimeline:
         # Initialize Japanese holidays
         jp_holidays = holidays.Japan()
         
-        current = datetime.now()
+        if start_date:
+            current = datetime.strptime(start_date, "%Y-%m-%d")
+        else:
+            current = datetime.now()
+
         while len(self.buckets) < days_count:
             # Skip weekends (5: Sat, 6: Sun) AND Japanese public holidays
             is_holiday = current.strftime("%Y-%m-%d") in jp_holidays
