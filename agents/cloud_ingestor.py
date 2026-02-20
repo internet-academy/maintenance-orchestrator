@@ -43,6 +43,7 @@ class CloudIngestor:
     def get_live_tasks(self):
         """Reads the worksheet and uses our block-parsing logic."""
         worksheet = self.get_current_month_worksheet()
+        gid = worksheet.id
         all_data = worksheet.get_all_values()
         
         tasks = []
@@ -53,6 +54,7 @@ class CloudIngestor:
             if row and row[0].strip().isdigit():
                 task = self._parse_block_from_list(all_data, i)
                 if task and self._is_valid(task):
+                    task['gid'] = gid # Attach worksheet ID for linking
                     tasks.append(task)
         return tasks
 
