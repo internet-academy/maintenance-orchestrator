@@ -195,6 +195,29 @@ https://www.internetacademy.jp/mem/admins/school/application_enroll/239895"""
         
         return description, title_summary, romaji_name
 
+    def _verify_ownership(self, backlog_id, current_row_index):
+        """
+        Verifies if the existing Backlog ticket actually belongs to this row.
+        Returns True if it matches, False if it's a copied ID from elsewhere.
+        """
+        try:
+            issue = self.load_balancer.get_issue(backlog_id)
+            desc = issue.get('description', '')
+            
+            # Extract the 'Sheet Link' from the description using regex
+            # Looking for: range=B{row}:C{row}
+            # We use a broad check for the row index in the link
+            pattern = fr"range=B{current_row_index + 1}:C{current_row_index + 1}"
+            
+            if pattern in desc:
+                return True
+            else:
+                print(f"⚠️ COLLISION DETECTED: {backlog_id} belongs to a different row. Description link mismatch.")
+                return False
+        except Exception as e:
+            print(f"DEBUG: Could not verify ownership for {backlog_id} (might be deleted): {e}")
+            return False
+
     def process_task(self, task):
         # Generate Bilingual content, summary, and localized name
         full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
