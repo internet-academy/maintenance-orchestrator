@@ -158,7 +158,7 @@ class Orchestrator:
         
         return description, title_summary, romaji_name
 
-    def _verify_ownership(self, backlog_id, current_row_index):
+    def _verify_ownership(self, backlog_id, task):
         """
         Verifies if the existing Backlog ticket actually belongs to this row.
         Returns True if it matches, False if it's a copied ID from elsewhere.
@@ -167,16 +167,19 @@ class Orchestrator:
             issue = self.load_balancer.get_issue(backlog_id)
             desc = issue.get('description', '')
             
-            # Extract the 'Sheet Link' from the description using regex
-            # Looking for: range=B{row}:C{row}
-            # We use a broad check for the row index in the link
-            pattern = fr"range=B{current_row_index + 1}:C{current_row_index + 1}"
-            
-            if pattern in desc:
+            # 1. Primary Check: Unique Task ID (e.g., "ID: 1")
+            id_marker = f"ID: {task['id']}\n"
+            if id_marker in desc:
                 return True
-            else:
-                print(f"⚠️ COLLISION DETECTED: {backlog_id} belongs to a different row. Description link mismatch.")
-                return False
+                
+            # 2. Secondary Check: Sheet Link range (e.g., "range=B20:C20")
+            row_num = task['row_index'] + 1
+            range_pattern = fr"range=B{row_num}:C{row_num}"
+            if range_pattern in desc:
+                return True
+            
+            print(f"⚠️ COLLISION DETECTED: {backlog_id} belongs to a different row (ID or Range mismatch).")
+            return False
         except Exception as e:
             print(f"DEBUG: Could not verify ownership for {backlog_id} (might be deleted): {e}")
             return False
@@ -192,7 +195,7 @@ class Orchestrator:
         backlog_id = task.get('backlog_id')
         if backlog_id:
             # NEW: Verify that this ID wasn't just copy-pasted from another row
-            is_rightful_owner = self._verify_ownership(backlog_id, task['row_index'])
+            is_rightful_owner = self._verify_ownership(backlog_id, task)
             
             if is_rightful_owner:
                 print(f"UPDATE: Found verified Backlog ID {backlog_id} (Req: {romaji_name}). Updating fields...")
