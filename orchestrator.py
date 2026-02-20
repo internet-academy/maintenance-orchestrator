@@ -97,6 +97,48 @@ class Orchestrator:
         content = f"{task['content']}|{task['estimated_hours']}"
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
+    def _get_or_create_parent_task(self, target_date_str):
+        """
+        Determines the parent task summary based on the target date's month end.
+        Finds or creates the parent '◆リクエラ(YYYY/MM/DD)' task.
+        """
+        # Parse date and find end of month
+        dt = datetime.strptime(target_date_str, "%Y-%m-%d")
+        import calendar
+        last_day = calendar.monthrange(dt.year, dt.month)[1]
+        month_end_str = dt.replace(day=last_day).strftime("%Y/%m/%d")
+        
+        summary = f"◆リクエラ({month_end_str})"
+        project_id = 528169
+        
+        # 1. Search for existing
+        parent = self.load_balancer.find_issue_by_summary(summary, project_id)
+        if parent:
+            return parent['id']
+            
+        # 2. Create if not exists
+        print(f"HIERARCHY: Creating new parent task '{summary}'...")
+        if self.dry_run:
+            return "MOCK_PARENT_ID"
+            
+        # Create a top-level task for the parent
+        parent_payload = {
+            "projectId": project_id,
+            "summary": summary,
+            "description": f"Parent task for error reports ending {month_end_str}",
+            "issueTypeId": 2750765, # バグ (or use a Task type if available)
+            "priorityId": 3,
+            "estimatedHours": 0
+        }
+        
+        endpoint = f"{self.load_balancer.base_url}/issues"
+        params = {"apiKey": self.load_balancer.api_key}
+        import requests
+        r = requests.post(endpoint, params=params, data=parent_payload)
+        r.raise_for_status()
+        new_parent = r.json()
+        return new_parent['id']
+
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
