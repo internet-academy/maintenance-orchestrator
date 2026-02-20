@@ -416,13 +416,16 @@ class Orchestrator:
                     due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
                     task['deadline'] = due_date
                     print(f"DEBUG: Calculated projected finish for verified update: {due_date}")
+                    
+                    # LINK TO PARENT based on deadline
+                    task['parent_id'] = self._get_or_create_parent_task(due_date)
             else:
                 print(f"ACTION: ID {backlog_id} appears to be a copy. Resetting to CREATE mode for this row.")
                 backlog_id = None # Force creation of a fresh ticket
         
         if backlog_id: # This only executes if verified above
             if self.dry_run:
-                print(f"[DRY RUN] Would update verified Backlog {backlog_id}")
+                print(f"[DRY RUN] Would update verified Backlog {backlog_id} under Parent {task.get('parent_id')}")
                 return
             try:
                 self.load_balancer.update_backlog_issue(backlog_id, task)
@@ -452,11 +455,15 @@ class Orchestrator:
             due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
             task['deadline'] = due_date
             
+            # LINK TO PARENT based on deadline
+            task['parent_id'] = self._get_or_create_parent_task(due_date)
+            
             print(f"ASSIGNING: Task {task['id']} (Req: {romaji_name}) ({task['estimated_hours']}h) -> {best_dev['name']}")
             print(f"TITLE PREVIEW: {task['summary']}")
+            print(f"HIERARCHY: Linking to Parent ID {task['parent_id']}")
             
             if self.dry_run:
-                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with deep-link and summary.")
+                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with deep-link and parent.")
                 return
             try:
                 issue = self.load_balancer.create_backlog_issue(best_dev['id'], task)
