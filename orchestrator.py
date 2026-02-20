@@ -19,7 +19,7 @@ class Orchestrator:
 
         if self.gemini_key:
             self.client = genai.Client(api_key=self.gemini_key)
-            self.model_name = 'gemini-2.0-flash'
+            self.model_name = 'gemini-1.5-flash'
         else:
             print("WARNING: GEMINI_API_KEY not found. Automated translation will be skipped.")
             self.client = None
