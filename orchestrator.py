@@ -38,10 +38,18 @@ class Orchestrator:
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
-        print("\n--- Current Team Load (Initial State) ---")
+        print("\n--- Team Capacity Map (Next 14 Days) ---")
         for name, dev_id in self.developer_map.items():
-            usage = self.timelines[dev_id].get_today_usage()
-            print(f"- {name}: {usage}h / {self.load_balancer.DAILY_LIMIT_HOURS}h limit today")
+            timeline = self.timelines[dev_id]
+            # Simple bar chart: [######....]
+            bars = ""
+            for b in timeline.buckets:
+                fill_ratio = b['used'] / self.load_balancer.DAILY_LIMIT_HOURS
+                if fill_ratio >= 1.0: bars += "█"
+                elif fill_ratio > 0.5: bars += "▓"
+                elif fill_ratio > 0: bars += "░"
+                else: bars += "."
+            print(f"{name.ljust(8)} [{bars}] today usage: {timeline.get_today_usage()}h")
         print("--------------------------------------------\n")
 
         try:
