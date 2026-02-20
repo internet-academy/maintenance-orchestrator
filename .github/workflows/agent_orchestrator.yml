@@ -20,7 +20,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r personal-agents/requirements.txt
 
       - name: Run Orchestrator
         env:
@@ -28,4 +28,5 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
           BACKLOG_API_KEY: ${{ secrets.BACKLOG_API_KEY }}
           BACKLOG_SPACE_ID: ${{ secrets.BACKLOG_SPACE_ID }}
-        run: python orchestrator.py
+          BACKLOG_PROJECT_ID: "MD_SD"
+        run: cd personal-agents && python orchestrator.py
