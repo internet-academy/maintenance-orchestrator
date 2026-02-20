@@ -58,7 +58,7 @@ class DeveloperTimeline:
 class LoadBalancer:
     def __init__(self, api_key, space_id):
         self.api_key = api_key
-        self.base_url = f"https://{space_id}.backlog.com/api/v2"
+        self.base_url = f"https://{space_id}.backlog.jp/api/v2"
         self.DAILY_LIMIT_HOURS = 6.0
 
     def get_active_workload(self, user_id, project_id=None):
