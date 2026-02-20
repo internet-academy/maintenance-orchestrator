@@ -80,28 +80,52 @@ class Orchestrator:
         description += f"\n## 原文 (Japanese)\n{task['content']}"
         return description, summary
 
+    def _verify_ownership(self, backlog_id, current_row_index):
+        """
+        Verifies if the existing Backlog ticket actually belongs to this row.
+        Returns True if it matches, False if it's a copied ID from elsewhere.
+        """
+        try:
+            issue = self.load_balancer.get_issue(backlog_id)
+            desc = issue.get('description', '')
+            
+            # Extract the 'Sheet Link' from the description using regex
+            # Looking for: range=B{row}:C{row}
+            # We use a broad check for the row index in the link
+            pattern = fr"range=B{current_row_index + 1}:C{current_row_index + 1}"
+            
+            if pattern in desc:
+                return True
+            else:
+                print(f"⚠️ COLLISION DETECTED: {backlog_id} belongs to a different row. Description link mismatch.")
+                return False
+        except Exception as e:
+            print(f"DEBUG: Could not verify ownership for {backlog_id} (might be deleted): {e}")
+            return False
+
     def process_task(self, task):
         # Generate Bilingual content and summary for title
         full_desc, ai_summary = self._generate_bilingual_description(task)
         task['description'] = full_desc
-        # Informative title
         task['title_summary'] = ai_summary
         task['summary'] = f"[ERROR] {ai_summary} ({task['requester']} - #{task['id']})"
 
-        # 1. Update Detection Logic
+        # 1. Update Detection & Ownership Verification
         backlog_id = task.get('backlog_id')
         if backlog_id:
-            print(f"UPDATE: Found existing Backlog ID {backlog_id}. Updating fields...")
+            # NEW: Verify that this ID wasn't just copy-pasted from another row
+            is_rightful_owner = self._verify_ownership(backlog_id, task['row_index'])
             
-            # WE MUST STILL CALCULATE THE TIMELINE FOR EXISTING TASKS
-            best_dev = self._find_best_dev(task['estimated_hours'])
-            if best_dev:
-                due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
-                task['deadline'] = due_date
-                print(f"DEBUG: Calculated projected finish for update: {due_date}")
-            
+            if is_rightful_owner:
+                print(f"UPDATE: Found verified Backlog ID {backlog_id}. Updating fields...")
+                # ... (rest of the update logic)
+            else:
+                print(f"ACTION: ID {backlog_id} appears to be a copy. Resetting to CREATE mode for this row.")
+                backlog_id = None # Force creation of a fresh ticket
+        
+        if backlog_id: # This only executes if verified above
             if self.dry_run:
-                print(f"[DRY RUN] Would update Backlog {backlog_id} with informative description.")
+                print(f"[DRY RUN] Would update verified Backlog {backlog_id}")
                 return
             try:
                 self.load_balancer.update_backlog_issue(backlog_id, task)

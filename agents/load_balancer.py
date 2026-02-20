@@ -84,6 +84,14 @@ class LoadBalancer:
         total_hours = sum(float(issue.get("estimatedHours") or 0) for issue in issues)
         return total_hours
 
+    def get_issue(self, issue_id_or_key):
+        """Fetches details for a single issue."""
+        endpoint = f"{self.base_url}/issues/{issue_id_or_key}"
+        params = {"apiKey": self.api_key}
+        response = requests.get(endpoint, params=params)
+        response.raise_for_status()
+        return response.json()
+
     def update_backlog_issue(self, issue_id_or_key, task_data):
         """
         Updates an existing issue in Backlog.
