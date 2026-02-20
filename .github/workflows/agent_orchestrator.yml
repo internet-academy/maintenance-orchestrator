@@ -2,8 +2,12 @@ name: Autonomous Manager Orchestrator
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Runs every hour
+    - cron: '*/20 * * * *'  # Runs every 20 minutes
   workflow_dispatch:      # Allows manual trigger from GitHub UI
+
+concurrency:
+  group: orchestrator-sync
+  cancel-in-progress: false # We want each run to finish, but only one at a time
 
 jobs:
   orchestrate:

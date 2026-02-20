@@ -32,12 +32,23 @@ class Orchestrator:
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
         
+        # Google Chat Webhook for Reporting
+        self.chat_webhook = os.getenv('GOOGLE_CHAT_REPORT_WEBHOOK')
+        
         # Real Developer Mapping for i-academy space
         self.developer_map = {
             "Saurabh": 984450,
             "Raman": 1819362,
             "Ewan": 1880127,
             "Choo": 1052465
+        }
+        
+        # Google Chat IDs for @mentions (User needs to provide these)
+        self.chat_ids = {
+            "Saurabh": os.getenv('CHAT_ID_SAURABH', 'Saurabh'),
+            "Raman": os.getenv('CHAT_ID_RAMAN', 'Raman'),
+            "Ewan": os.getenv('CHAT_ID_EWAN', 'Ewan'),
+            "Choo": os.getenv('CHAT_ID_CHOO', 'Choo')
         }
         
         # Name Mapping (Localized to English)
