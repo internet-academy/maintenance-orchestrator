@@ -20,21 +20,25 @@ class DeveloperTimeline:
             current += timedelta(days=1)
 
     def fill_hours(self, hours):
-        """Pours hours into buckets sequentially. Returns the completion date."""
+        """Pours hours into buckets sequentially. Returns the completion date or None if overloaded."""
         remaining_to_pour = float(hours)
-        last_date = self.buckets[0]['date']
+        last_date = None
         
         for bucket in self.buckets:
             if remaining_to_pour <= 0:
                 break
             
             can_take = min(remaining_to_pour, bucket['remaining'])
-            bucket['used'] += can_take
-            bucket['remaining'] -= can_take
-            remaining_to_pour -= can_take
-            last_date = bucket['date']
+            if can_take > 0:
+                bucket['used'] += can_take
+                bucket['remaining'] -= can_take
+                remaining_to_pour -= can_take
+                last_date = bucket['date']
+        
+        if remaining_to_pour > 0:
+            return None # Could not fit in 14 days
             
-        return last_date
+        return last_date or self.buckets[0]['date']
 
     def get_today_usage(self):
         return self.buckets[0]['used']

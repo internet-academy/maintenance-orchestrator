@@ -1,12 +1,11 @@
 import os
 import json
 from agents.cloud_ingestor import CloudIngestor
-from agents.load_balancer import LoadBalancer
+from agents.load_balancer import LoadBalancer, DeveloperTimeline
 from datetime import datetime
 
 class Orchestrator:
     def __init__(self, dry_run=False):
-        # Load from Environment Variables (set by GitHub Secrets)
         self.dry_run = dry_run
         if self.dry_run:
             print("!!! RUNNING IN DRY RUN MODE - NO API MUTATIONS WILL OCCUR !!!")
@@ -19,9 +18,6 @@ class Orchestrator:
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
         
-        # In-memory tracking for this specific run to prevent over-assignment
-        self.session_load = {} # { dev_id: running_total_hours }
-
         # Real Developer Mapping for i-academy space
         self.developer_map = {
             "Saurabh": 984450,
@@ -29,15 +25,23 @@ class Orchestrator:
             "Ewan": 1880127,
             "Choo": 1052465
         }
+        
+        # Initialize Timelines for all developers
+        self.timelines = {}
+        for name, dev_id in self.developer_map.items():
+            timeline = DeveloperTimeline(name)
+            # Pre-fill with actual Backlog load (last 7 days)
+            actual_load = self.load_balancer.get_active_workload(dev_id, project_id=528169)
+            timeline.fill_hours(actual_load)
+            self.timelines[dev_id] = timeline
 
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
         
-        # Initial Load Report
-        print("\n--- Current Team Load (MD_SD Project Only) ---")
+        print("\n--- Current Team Load (Initial State) ---")
         for name, dev_id in self.developer_map.items():
-            load = self._get_dev_session_load(dev_id)
-            print(f"- {name}: {load}h / {self.load_balancer.DAILY_LIMIT_HOURS}h limit")
+            usage = self.timelines[dev_id].get_today_usage()
+            print(f"- {name}: {usage}h / {self.load_balancer.DAILY_LIMIT_HOURS}h limit today")
         print("--------------------------------------------\n")
 
         try:
@@ -58,7 +62,7 @@ class Orchestrator:
         if backlog_id:
             print(f"UPDATE: Found existing Backlog ID {backlog_id}. Updating fields...")
             if self.dry_run:
-                print(f"[DRY RUN] Would update Backlog {backlog_id} with {task['estimated_hours']}h")
+                print(f"[DRY RUN] Would update Backlog {backlog_id}")
                 return
             try:
                 self.load_balancer.update_backlog_issue(backlog_id, task)
@@ -67,7 +71,7 @@ class Orchestrator:
                 print(f"ERROR: Failed to update {backlog_id}: {str(e)}")
             return
 
-        # 2. Skip if already assigned in sheet (Legacy check)
+        # 2. Skip if already assigned in sheet
         if task.get('pic'):
             print(f"SKIP: Task {task['id']} already has PIC: {task['pic']}")
             return
@@ -76,71 +80,47 @@ class Orchestrator:
         best_dev = self._find_best_dev(task['estimated_hours'])
         
         if best_dev:
+            # The completion date is the calculated deadline
+            due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
+            task['deadline'] = due_date
+            
             print(f"ASSIGNING: Task {task['id']} (Req: {task['requester']}) ({task['estimated_hours']}h) -> {best_dev['name']}")
+            print(f"PROJECTED FINISH: {due_date}")
+            
             if self.dry_run:
-                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} and write back to sheet.")
+                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with DueDate: {due_date}")
                 return
             try:
                 issue = self.load_balancer.create_backlog_issue(best_dev['id'], task)
                 issue_key = issue['issueKey']
                 print(f"CREATED: Backlog Issue {issue_key}")
-                
-                # Write back to Sheet
                 self.ingestor.write_backlog_id(task['row_index'], issue_key)
-                print(f"SYNC: Wrote {issue_key} back to Google Sheet row {task['row_index']}")
             except Exception as e:
-                print(f"ERROR: Failed to create issue for task {task['id']}: {str(e)}")
+                print(f"ERROR: Failed to create issue: {str(e)}")
         else:
-            print(f"OVERLOAD: No capacity for Task {task['id']} ({task['estimated_hours']}h) today.")
-
-    def _get_dev_session_load(self, dev_id):
-        """Gets current load from API + what we've assigned this session."""
-        if dev_id not in self.session_load:
-            # First time this run: get actual load from Backlog API
-            try:
-                # Use the numeric project ID for System Development (MD_SD)
-                actual_load = self.load_balancer.get_active_workload(dev_id, project_id=528169)
-            except:
-                actual_load = 0.0 # Fallback
-            self.session_load[dev_id] = actual_load
-            
-        return self.session_load[dev_id]
+            print(f"OVERLOAD: No capacity for Task {task['id']} even in 14-day window.")
 
     def _find_best_dev(self, hours):
-        """Finds the dev with the lowest current load, prioritizing Core Team over Manager."""
+        """Finds the dev with the lowest Today's usage, prioritizing Core."""
         core_options = []
         manager_option = None
 
         for name, dev_id in self.developer_map.items():
-            current_total = self._get_dev_session_load(dev_id)
-            projected = current_total + float(hours)
+            timeline = self.timelines[dev_id]
+            today_usage = timeline.get_today_usage()
             
-            if projected <= self.load_balancer.DAILY_LIMIT_HOURS:
-                option = {
-                    "name": name, 
-                    "id": dev_id, 
-                    "load": current_total
-                }
+            # Check if Today has any space at all
+            if today_usage < self.load_balancer.DAILY_LIMIT_HOURS:
+                option = {"name": name, "id": dev_id, "usage": today_usage}
                 if name == "Choo":
                     manager_option = option
                 else:
                     core_options.append(option)
         
-        # 1. Try Core Team first
         if core_options:
-            best = sorted(core_options, key=lambda x: x['load'])[0]
-            self.session_load[best['id']] += float(hours)
-            print(f"DEBUG: {best['name']} (Core) running load: {self.session_load[best['id']]}h")
-            return best
+            return sorted(core_options, key=lambda x: x['usage'])[0]
         
-        # 2. If Core is full, use Manager (Choo)
-        if manager_option:
-            print(f"DEBUG: Core Team full. Utilizing Manager Overflow.")
-            self.session_load[manager_option['id']] += float(hours)
-            print(f"DEBUG: {manager_option['name']} (Manager) running load: {self.session_load[manager_option['id']]}h")
-            return manager_option
-
-        return None
+        return manager_option
 
 if __name__ == "__main__":
     manager = Orchestrator()
