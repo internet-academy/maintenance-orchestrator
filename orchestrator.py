@@ -478,24 +478,24 @@ class Orchestrator:
             print(f"OVERLOAD: No capacity for Task {task['id']} even in 14-day window.")
 
     def _find_best_dev(self, hours):
-        """Finds the dev with the lowest Today's usage, prioritizing Core."""
+        """Finds the dev who can finish the hours earliest, prioritizing Core."""
         core_options = []
         manager_option = None
 
         for name, dev_id in self.developer_map.items():
             timeline = self.timelines[dev_id]
-            today_usage = timeline.get_today_usage()
+            finish_date = timeline.peek_fill(hours)
             
-            # Check if Today has any space at all
-            if today_usage < self.load_balancer.DAILY_LIMIT_HOURS:
-                option = {"name": name, "id": dev_id, "usage": today_usage}
+            if finish_date:
+                option = {"name": name, "id": dev_id, "finish_date": finish_date}
                 if name == "Choo":
                     manager_option = option
                 else:
                     core_options.append(option)
         
+        # Sort core options by finish_date (earliest first)
         if core_options:
-            return sorted(core_options, key=lambda x: x['usage'])[0]
+            return sorted(core_options, key=lambda x: x['finish_date'])[0]
         
         return manager_option
 
