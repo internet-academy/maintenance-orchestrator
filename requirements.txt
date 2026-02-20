@@ -3,4 +3,4 @@ oauth2client
 holidays
 requests
 python-dotenv
-google-generativeai
+google-genai
