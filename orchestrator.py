@@ -122,8 +122,21 @@ class Orchestrator:
             for task in tasks:
                 self.process_task(task)
             
-            # --- POST-SYNC REPORTING ---
-            self._send_daily_report(tasks)
+            # --- TIME-GATED DAILY REPORT ---
+            # Default to hour 0 (9 AM JST) if not specified
+            target_hour = int(os.getenv('REPORT_HOUR', '0')) 
+            today_date = datetime.now().strftime("%Y-%m-%d")
+            current_hour = datetime.now().hour
+
+            if current_hour == target_hour:
+                if self.state.get('last_report_date') != today_date:
+                    print(f"REPORT WINDOW OPEN: Sending Daily Report for {today_date}...")
+                    self._send_daily_report(tasks)
+                    self.state['last_report_date'] = today_date
+                else:
+                    print("REPORT SKIP: Already sent today.")
+            else:
+                print(f"REPORT SKIP: Current hour {current_hour} != Target {target_hour}.")
             
             self._save_state()
 
