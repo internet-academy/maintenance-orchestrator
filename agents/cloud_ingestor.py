@@ -75,6 +75,12 @@ class CloudIngestor:
             # If it's a note or empty, fallback to 1.0
             est_hours = 1.0
         
+        # Validate Backlog ID format (e.g., MD_SD-1234)
+        raw_backlog_id = row[9] if len(row) > 9 else None
+        backlog_id = None
+        if raw_backlog_id and re.match(r"^[A-Z0-9_]+-\d+$", raw_backlog_id):
+            backlog_id = raw_backlog_id
+        
         return {
             "row_index": start_index,
             "id": row[0],
@@ -82,6 +88,6 @@ class CloudIngestor:
             "date": row[4],
             "content": content_row[3] if len(content_row) > 3 else "",
             "estimated_hours": est_hours,
-            "backlog_id": row[9] if len(row) > 9 else None, # Column J
+            "backlog_id": backlog_id,
             "pic": row[10] if len(row) > 10 else None # Column K
         }
