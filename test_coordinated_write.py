@@ -13,7 +13,9 @@ def test_write_verification():
     
     # Setup for Success case
     # Cell check is for the Anchor (Label) cell
-    # (row=2, col=9) in 0-based -> (row=3, col=10) in 1-based
+    # (row=2, col=9) in 0-based -> (row=3, col=10) in 1-based. NO. 
+    # Row 2 -> index 2 -> 3rd row -> cell(3, ...)
+    # Col 9 -> index 9 -> 10th col -> cell(..., 10)
     mock_worksheet.cell.side_effect = lambda r, c: MagicMock(value="Status" if r == 3 and c == 10 else "Wrong")
 
     class DummyIngestor(CloudIngestor):
@@ -28,7 +30,7 @@ def test_write_verification():
     anchor_map = {"status": (2, 9)} # 0-based index
     ingestor.write_status(anchor_map, "Resolved")
     
-    # Check if update_cell was called on (3, 11) -> 1-based
+    # Check if update_cell was called on (3, 11) (1-based for col 10 + 1) -> No, col+2
     mock_worksheet.update_cell.assert_called_with(3, 11, "Resolved")
     print("SUCCESS Case Verified.")
 

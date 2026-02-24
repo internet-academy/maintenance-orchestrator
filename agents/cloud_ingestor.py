@@ -67,13 +67,12 @@ class CloudIngestor:
         row, col = anchor_map['backlog_id']
         worksheet = self.get_current_month_worksheet()
         
-        # VERIFICATION: Check if the label still exists at the expected anchor
-        # Note: gspread is 1-based, our row/col from all_data is 0-based
-        label_cell = worksheet.cell(row + 1, col).value
+        # VERIFICATION: Anchor is at (row+1, col+1). Value is at (row+1, col+2).
+        label_cell = worksheet.cell(row + 1, col + 1).value
         if "Backlog ID" in label_cell or "Ticket" in label_cell:
-            worksheet.update_cell(row + 1, col + 1, issue_key)
+            worksheet.update_cell(row + 1, col + 2, issue_key)
         else:
-            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col}. Expected 'Backlog ID', found '{label_cell}'. Write ABORTED.")
+            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'Backlog ID', found '{label_cell}'. Write ABORTED.")
 
     def write_status(self, anchor_map, status_text):
         """Writes the task status using verified anchor coordinates."""
@@ -85,11 +84,14 @@ class CloudIngestor:
         worksheet = self.get_current_month_worksheet()
         
         # VERIFICATION
-        label_cell = worksheet.cell(row + 1, col).value
+        # row, col are 0-based. gspread is 1-based.
+        # Anchor (Label) is at (row+1, col+1).
+        # Value is at (row+1, col+2).
+        label_cell = worksheet.cell(row + 1, col + 1).value
         if "Status" in label_cell:
-            worksheet.update_cell(row + 1, col + 1, status_text)
+            worksheet.update_cell(row + 1, col + 2, status_text)
         else:
-            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col}. Expected 'Status', found '{label_cell}'. Write ABORTED.")
+            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'Status', found '{label_cell}'. Write ABORTED.")
 
     def _is_valid(self, task):
         return "2025" not in task['date'] and task['requester'] != ""
