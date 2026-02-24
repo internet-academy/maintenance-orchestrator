@@ -58,64 +58,106 @@ class CloudIngestor:
                     tasks.append(task)
         return tasks
 
-    def write_backlog_id(self, row_index, issue_key):
-        """Writes the Backlog ID to the 10th column (J) of the sheet."""
-        worksheet = self.get_current_month_worksheet()
-        # gspread uses 1-based indexing
-        worksheet.update_cell(row_index + 1, 10, issue_key)
+    def write_backlog_id(self, anchor_map, issue_key):
+        """Writes the Backlog ID using verified anchor coordinates."""
+        if not anchor_map or 'backlog_id' not in anchor_map:
+            print("ERROR: No anchor found for Backlog ID. Skipping write.")
+            return
 
-    def write_status(self, row_index, status_text):
-        """Writes the task status to the 11th column (K) of the status row (offset 9)."""
+        row, col = anchor_map['backlog_id']
         worksheet = self.get_current_month_worksheet()
-        # The status value is at row_index + 9 (0-based) which is +10 (1-based)
-        worksheet.update_cell(row_index + 10, 11, status_text)
+        
+        # VERIFICATION: Check if the label still exists at the expected anchor
+        # Note: gspread is 1-based, our row/col from all_data is 0-based
+        label_cell = worksheet.cell(row + 1, col).value
+        if "Backlog ID" in label_cell or "Ticket" in label_cell:
+            worksheet.update_cell(row + 1, col + 1, issue_key)
+        else:
+            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col}. Expected 'Backlog ID', found '{label_cell}'. Write ABORTED.")
+
+    def write_status(self, anchor_map, status_text):
+        """Writes the task status using verified anchor coordinates."""
+        if not anchor_map or 'status' not in anchor_map:
+            print("ERROR: No anchor found for Status. Skipping write.")
+            return
+
+        row, col = anchor_map['status']
+        worksheet = self.get_current_month_worksheet()
+        
+        # VERIFICATION
+        label_cell = worksheet.cell(row + 1, col).value
+        if "Status" in label_cell:
+            worksheet.update_cell(row + 1, col + 1, status_text)
+        else:
+            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col}. Expected 'Status', found '{label_cell}'. Write ABORTED.")
 
     def _is_valid(self, task):
         return "2025" not in task['date'] and task['requester'] != ""
 
     def _parse_block_from_list(self, data, start_index):
-        row = data[start_index]
-        content_row = data[start_index + 2] if (start_index + 2) < len(data) else [""] * 10
-        translation_row = data[start_index + 3] if (start_index + 3) < len(data) else [""] * 10
-        
-        # SEARCH for the specific row containing 'PIC' and 'Estimated Hours'
-        est_hours = 0.0
-        pic = None
-        current_status = ""
-        for offset in range(1, 15):
-            if (start_index + offset) >= len(data):
+        """
+        Stateful parser that treats a range of rows as a single 'Form Block'.
+        Tracks absolute coordinates (anchors) for all metadata fields.
+        """
+        block_rows = []
+        for i in range(start_index, min(start_index + 15, len(data))):
+            if i > start_index and data[i] and data[i][0].strip().isdigit():
                 break
-            
-            search_row = data[start_index + offset]
-            
-            # PIC and Estimated Hours
-            if len(search_row) > 12 and search_row[9] == "PIC" and "Estimated Hours" in search_row[12]:
-                pic = search_row[10].strip() if search_row[10] else None
-                try:
-                    val = search_row[13] if len(search_row) > 13 else "0"
-                    est_hours = float(val) if val and str(val).strip() else 0.0
-                except (ValueError, TypeError):
-                    est_hours = 1.0 
-            
-            # Current Status from Sheet
-            if len(search_row) > 10 and search_row[9] == "Status":
-                current_status = search_row[10].strip()
-
-        # Validate Backlog ID format
-        raw_backlog_id = row[9] if len(row) > 9 else None
-        backlog_id = None
-        if raw_backlog_id and re.match(r"^[A-Z0-9_]+-\d+$", raw_backlog_id):
-            backlog_id = raw_backlog_id
+            block_rows.append(data[i])
         
-        return {
+        first_row = block_rows[0]
+        task = {
             "row_index": start_index,
-            "id": row[0],
-            "requester": row[3],
-            "date": row[4],
-            "content": content_row[3] if len(content_row) > 3 else "",
-            "english_translation_fallback": translation_row[3] if len(translation_row) > 3 else "",
-            "estimated_hours": est_hours,
-            "backlog_id": backlog_id,
-            "pic": pic,
-            "current_sheet_status": current_status
+            "id": first_row[0].strip(),
+            "requester": first_row[3].strip() if len(first_row) > 3 else "",
+            "date": first_row[4].strip() if len(first_row) > 4 else "",
+            "content": "",
+            "english_translation_fallback": "",
+            "estimated_hours": 1.0,
+            "backlog_id": None,
+            "pic": None,
+            "current_sheet_status": "",
+            "anchors": {} 
         }
+
+        for i, row in enumerate(block_rows):
+            abs_row_idx = start_index + i
+            
+            # Content/Translation Fallback (Fixed Offsets)
+            if i == 2 and len(row) > 3: task["content"] = row[3].strip()
+            if i == 3 and len(row) > 3: task["english_translation_fallback"] = row[3].strip()
+
+            # Dynamic Anchor Search (Restricted to Columns 8-15 / I-O)
+            for col_idx in range(8, min(15, len(row))):
+                cell_clean = str(row[col_idx]).strip()
+                
+                if cell_clean == "PIC" and col_idx + 1 < len(row):
+                    task["pic"] = row[col_idx + 1].strip()
+                    task["anchors"]["pic"] = (abs_row_idx, col_idx)
+                
+                if cell_clean == "Status" and col_idx + 1 < len(row):
+                    task["current_sheet_status"] = row[col_idx + 1].strip()
+                    task["anchors"]["status"] = (abs_row_idx, col_idx)
+                
+                if "Estimated Hours" in cell_clean and col_idx + 1 < len(row):
+                    try:
+                        val = row[col_idx + 1].strip()
+                        task["estimated_hours"] = float(val) if val else 1.0
+                    except (ValueError, TypeError):
+                        task["estimated_hours"] = 1.0
+                    task["anchors"]["est_hours"] = (abs_row_idx, col_idx)
+                
+                if ("Backlog ID" in cell_clean or "Ticket" in cell_clean) and col_idx + 1 < len(row):
+                    raw_id = row[col_idx + 1].strip()
+                    if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
+                        task["backlog_id"] = raw_id
+                    task["anchors"]["backlog_id"] = (abs_row_idx, col_idx)
+
+        # Final Fallback for Backlog ID (Check Column J of first row)
+        if not task["backlog_id"] and len(first_row) > 9:
+            raw_id = first_row[9].strip()
+            if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
+                task["backlog_id"] = raw_id
+                task["anchors"]["backlog_id"] = (start_index, 9)
+
+        return task

@@ -392,7 +392,7 @@ class Orchestrator:
                     if mapped_status and mapped_status != sheet_status:
                         print(f"STATUS SYNC: Backlog ({mapped_status}) != Sheet ({sheet_status}). Updating Sheet...")
                         if not self.dry_run:
-                            self.ingestor.write_status(task['row_index'], mapped_status)
+                            self.ingestor.write_status(task['anchors'], mapped_status)
                 except Exception as e:
                     print(f"WARNING: Could not fetch latest status for {backlog_id}: {e}")
 
