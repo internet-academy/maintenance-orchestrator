@@ -30,7 +30,7 @@ def test_write_verification():
     anchor_map = {"status": (2, 9)} # 0-based index
     ingestor.write_status(anchor_map, "Resolved")
     
-    # Check if update_cell was called on (3, 11) (1-based for col 10 + 1) -> No, col+2
+    # Check if update_cell was called on (3, 11) (1-based for col 9 + 2)
     mock_worksheet.update_cell.assert_called_with(3, 11, "Resolved")
     print("SUCCESS Case Verified.")
 
