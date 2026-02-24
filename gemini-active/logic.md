@@ -19,3 +19,4 @@ Logical, structural, and focused on reliability.
 
 
 ## LESSONS LEARNED (ANTI-PATTERNS)
+- **[Google Sheets API]**: NEVER use 0-based indexing for `gspread` cell reads or updates (e.g., `worksheet.cell()`, `worksheet.update_cell()`). The `gspread` library strictly uses 1-based indexing for both Rows and Columns. ALWAYS convert internal 0-based logic to 1-based at the API boundary.
