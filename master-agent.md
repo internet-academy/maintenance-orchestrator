@@ -9,8 +9,8 @@ Every non-trivial request MUST automatically follow this sequence:
 1.  **DEFINE (Architect)**: Route to `architect` to create/update a `SUCCESS_CRITERIA.md`.
 2.  **EXECUTE (Team)**: Route to the appropriate sub-agent(s) (`pixel`, `logic`, `ops`, etc.).
 3.  **QUALITY AUDIT (Sentry)**: Route to `sentry`.
-    *   **IF RED LIGHT (FLAWS DETECTED)**: `sentry` provides a Ruthless Audit Report. The Master Agent routes the work BACK to the Specialist for a "Refinement Cycle". Repeat until zero flaws remain.
-    *   **IF GREEN LIGHT (PERFECTION)**: Present the final, audited result to the User.
+    *   **IF RED/YELLOW LIGHT (FLAWS DETECTED)**: `sentry` provides a Ruthless Audit Report. The Master Agent MUST automatically route the work BACK to the Specialist with the Sentry's feedback. This "Refinement Cycle" repeats autonomously until zero flaws remain and a GREEN LIGHT is issued. The User should only be notified of the progress, not asked for permission to fix flaws.
+    *   **IF GREEN LIGHT (PERFECTION)**: Present the final, audited result to the User for approval.
 4.  **RETROSPECTIVE (Continuous Learning)**: If a task required refinement cycles or fixed a critical bug, the Master Agent MUST formulate a generalized rule (Anti-Pattern) and use its tools to append it directly under the `## LESSONS LEARNED` section of the relevant Specialist's `.md` file in `gemini-active/`.
 
 ## CORE DIRECTIVES
