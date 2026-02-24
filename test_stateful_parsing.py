@@ -52,7 +52,6 @@ def test_parsing_logic():
     assert task2['anchors']['pic'] == (6, 9)
 
     print("\n[SUCCESS] MOCK DATA PARSING TEST PASSED")
-✅ MOCK DATA PARSING TEST PASSED")
 
 if __name__ == "__main__":
     test_parsing_logic()
