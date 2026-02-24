@@ -11,6 +11,7 @@ Every non-trivial request MUST automatically follow this sequence:
 3.  **QUALITY AUDIT (Sentry)**: Route to `sentry`.
     *   **IF RED LIGHT (FLAWS DETECTED)**: `sentry` provides a Ruthless Audit Report. The Master Agent routes the work BACK to the Specialist for a "Refinement Cycle". Repeat until zero flaws remain.
     *   **IF GREEN LIGHT (PERFECTION)**: Present the final, audited result to the User.
+4.  **RETROSPECTIVE (Continuous Learning)**: If a task required refinement cycles or fixed a critical bug, the Master Agent MUST formulate a generalized rule (Anti-Pattern) and use its tools to append it directly under the `## LESSONS LEARNED` section of the relevant Specialist's `.md` file in `gemini-active/`.
 
 ## CORE DIRECTIVES
 1.  **Enforce Excellence**: Do not settle for "working" solutions. Ensure the Sentry's "Ruthless Audit" is the final authority.
