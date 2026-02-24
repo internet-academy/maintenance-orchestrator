@@ -94,3 +94,4 @@ Feb 17, 2026: Infrastructure & Memory Persistence Update.
 Feb 17, 2026: Master Agent session initialized. Context synchronized from Bohr, MrClinic, and Meeting Translator logs.
 New requirement: The Google Sheet (CSV) uses a form-block layout (multi-row per ID). Ingestor must be a stateful parser. Pattern identified: '🆕UX設計・システム開発管理シート - エラー報告_YYMM.csv'.
 >>>>>>> Stashed changes
+STRICT MANDATE: Every task must follow the Architect -> Specialist -> Sentry pipeline with explicit 'ROUTING TO' headers. Current Phase: Ingestor Refinement.
