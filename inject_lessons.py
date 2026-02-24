@@ -5,9 +5,7 @@ directory = 'gemini-active'
 pattern = os.path.join(directory, '*.md')
 files = glob.glob(pattern)
 
-section_header = "
-## LESSONS LEARNED (ANTI-PATTERNS)
-"
+section_header = "\\n## LESSONS LEARNED (ANTI-PATTERNS)\\n"
 
 for file_path in files:
     with open(file_path, 'r', encoding='utf-8') as f:

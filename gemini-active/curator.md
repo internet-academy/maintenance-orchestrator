@@ -13,3 +13,4 @@
 
 ## PROJECT CONTEXT
 - Primary focus: `~/ia/wiki`, `~/ia/docs`, and the memory files in `~/personal-projects/personal-agents/`.
+\n## LESSONS LEARNED (ANTI-PATTERNS)\n

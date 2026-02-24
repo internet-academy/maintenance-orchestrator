@@ -15,3 +15,4 @@
 ## PROJECT CONTEXT
 - Primary Servers: 52.197.181.101 (Test), 54.250.128.150 (Live).
 - Follow the `project_states.json` to verify branch status before pushing.
+\n## LESSONS LEARNED (ANTI-PATTERNS)\n
