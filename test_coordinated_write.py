@@ -12,7 +12,8 @@ def test_write_verification():
     mock_worksheet = MagicMock()
     
     # Setup for Success case
-    # cell() is 1-based. (row=2, col=9) in 0-based -> (row=3, col=10) in 1-based
+    # Cell check is for the Anchor (Label) cell
+    # (row=2, col=9) in 0-based -> (row=3, col=10) in 1-based
     mock_worksheet.cell.side_effect = lambda r, c: MagicMock(value="Status" if r == 3 and c == 10 else "Wrong")
 
     class DummyIngestor(CloudIngestor):
@@ -41,8 +42,7 @@ def test_write_verification():
     assert mock_worksheet.update_cell.call_count == 1
     print("FAILURE (Mismatch) Case Verified.")
 
-    print("
-[SUCCESS] COORDINATED WRITE TEST PASSED")
+    print("\n[SUCCESS] COORDINATED WRITE TEST PASSED")
 
 if __name__ == "__main__":
     test_write_verification()
