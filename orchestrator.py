@@ -470,7 +470,7 @@ class Orchestrator:
                 issue = self.load_balancer.create_backlog_issue(best_dev['id'], task)
                 issue_key = issue['issueKey']
                 print(f"CREATED: Backlog Issue {issue_key}")
-                self.ingestor.write_backlog_id(task['row_index'], issue_key)
+                self.ingestor.write_backlog_id(task['anchors'], issue_key)
                 # Update local state
                 self.state[issue_key] = current_hash
             except Exception as e:
