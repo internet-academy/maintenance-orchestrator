@@ -18,4 +18,6 @@ Example Output: switch
 
 Example Input: "Translate this to polite Japanese"
 Example Output: kaizen
-\n## LESSONS LEARNED (ANTI-PATTERNS)\n
+
+
+## LESSONS LEARNED (ANTI-PATTERNS)
