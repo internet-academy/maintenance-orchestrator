@@ -24,6 +24,7 @@ class Orchestrator:
         self.backlog_key = os.getenv('BACKLOG_API_KEY')
         self.space_id = os.getenv('BACKLOG_SPACE_ID')
         self.gemini_key = os.getenv('GEMINI_API_KEY')
+        self.github_token = os.getenv('GITHUB_TOKEN')
         
         # State tracking to prevent redundant updates
         self.state_file = "sync_state.json"
@@ -38,6 +39,13 @@ class Orchestrator:
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
+        
+        # Initialize GitSync if token is available
+        if self.github_token:
+            self.git_sync = GitSync(self.github_token, self.backlog_key, self.space_id, dry_run=self.dry_run)
+        else:
+            print("WARNING: GITHUB_TOKEN not found. Git-to-Backlog sync will be skipped.")
+            self.git_sync = None
         
         # Google Chat Webhook for Reporting
         self.chat_webhook = os.getenv('GOOGLE_CHAT_REPORT_WEBHOOK')
@@ -201,6 +209,21 @@ class Orchestrator:
             import traceback
             print(f"CRITICAL ERROR: {str(e)}")
             traceback.print_exc()
+
+    def sync_git_activity(self):
+        """Scans configured repositories for PR activity and updates Backlog."""
+        if not self.git_sync:
+            return
+
+        repos = [
+            "young-min-choo/bohr-individual",
+            "young-min-choo/member"
+        ]
+        
+        print("\n--- Starting Git-to-Backlog Sync ---")
+        for repo in repos:
+            self.git_sync.scan_and_sync(repo)
+        print("--- Git Sync Complete ---\n")
 
     def _post_to_chat(self, text, thread_key=None):
         """Sends a message to Google Chat via webhook."""
