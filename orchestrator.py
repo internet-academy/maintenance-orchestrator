@@ -258,7 +258,7 @@ class Orchestrator:
             self._post_to_chat(full_report, thread_key=thread_key)
 
     def _translate_and_summarize(self, text, fallback_translation=""):
-        """Uses Gemini to translate Japanese to English and generate a title."""
+        """Uses Gemini to translate Japanese to English and generate a title with retries."""
         if not self.client:
             # Fallback to sheet's google translation if client is missing
             return "Bug Report", fallback_translation if fallback_translation else text
@@ -278,31 +278,42 @@ class Orchestrator:
         {text}
         """
         
-        try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            result = response.text.strip()
-            
-            if "TITLE:" in result and "TRANSLATION:" in result:
-                title_part = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip()
-                translation_part = result.split("TRANSLATION:")[1].strip()
-                # Clean up any potential markdown headers if Gemini included them
-                title_part = title_part.replace("**", "").replace("#", "").strip()
-                return title_part, translation_part
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt
+                )
+                result = response.text.strip()
                 
-            return "Bug Report", fallback_translation if fallback_translation else text
-        except Exception as e:
-            print(f"ERROR calling Gemini API: {e}")
-            # Hierarchy: Try to use sheet's translation as fallback if AI fails
-            title = "Bug Report"
-            if fallback_translation:
-                # Try to extract a simple title from the fallback
-                first_line = fallback_translation.split('\n')[0]
-                if len(first_line) > 10:
-                    title = first_line[:50] + "..." if len(first_line) > 50 else first_line
-            return title, fallback_translation if fallback_translation else text
+                if "TITLE:" in result and "TRANSLATION:" in result:
+                    title_part = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip()
+                    translation_part = result.split("TRANSLATION:")[1].strip()
+                    # Clean up any potential markdown headers if Gemini included them
+                    title_part = title_part.replace("**", "").replace("#", "").strip()
+                    return title_part, translation_part
+                
+                # If format is unexpected but we got a response, break retry and use fallback
+                break
+                
+            except Exception as e:
+                if "503" in str(e) and attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 2
+                    print(f"WARNING: Gemini 503 (Busy). Retrying in {wait_time}s... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                print(f"ERROR calling Gemini API: {e}")
+                break
+
+        # Fallback Logic
+        title = "Bug Report"
+        if fallback_translation:
+            first_line = fallback_translation.split('\n')[0]
+            if len(first_line) > 10:
+                title = first_line[:50] + "..." if len(first_line) > 50 else first_line
+        return title, fallback_translation if fallback_translation else text
 
     def _generate_bilingual_description(self, task):
         """Constructs a bilingual description with deep links and automated translation."""
