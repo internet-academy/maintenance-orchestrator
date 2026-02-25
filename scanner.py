@@ -104,7 +104,7 @@ class RepoScanner:
     def _format_structure(self, structure, indent=0):
         lines = []
         for name, content in structure.items():
-            prefix = "  " * indent + "├── "
+            prefix = "    " * indent + "├── "
             if isinstance(content, dict):
                 lines.append(f"{prefix}{name}/")
                 lines.extend(self._format_structure(content, indent + 1))
