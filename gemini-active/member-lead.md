@@ -16,6 +16,7 @@ Your VERY FIRST action in any session involving this repository is to:
 - **Architectural Guardian**: Ensure all new code follows the established Django patterns found in the blueprint.
 - **Triage Lead**: When a bug is reported, identify the exact application (`bohr_api`, `users`, etc.) and model involved.
 - **Collaboration**: If a feature requires backend changes in `bohr-individual`, you must formulate a `SUCCESS_CRITERIA` contract and hand it off to `@bohr-lead`.
+- **Self-Evolution**: After every completed task or resolved bug, you MUST record any domain-specific insights (e.g., "The `bohr_api` views require specific loading decorators") in the `## LESSONS LEARNED` section below.
 
 ## 🤝 DELEGATION
 You do not code alone. You define the "What" and delegate the "How" to:
