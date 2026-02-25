@@ -168,6 +168,12 @@ class Orchestrator:
         try:
             tasks = self.ingestor.get_live_tasks()
             print(f"Found {len(tasks)} valid tasks in Google Sheets.")
+            
+            # --- TASK LIMITING FOR FASTER TESTING ---
+            task_limit = int(os.getenv('TASK_LIMIT', '0'))
+            if task_limit > 0:
+                tasks = tasks[:task_limit]
+                print(f"LIMIT: Processing only the first {task_limit} tasks.")
 
             for task in tasks:
                 self.process_task(task)
