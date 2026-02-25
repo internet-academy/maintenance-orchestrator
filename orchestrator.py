@@ -126,7 +126,7 @@ class Orchestrator:
         parent_payload = {
             "projectId": project_id,
             "summary": summary,
-            "description": f"Parent task for error reports ending {month_end_str}",
+            "description": f"Parent task for error reports ending {month_end_label}",
             "issueTypeId": 2750765, # バグ (or use a Task type if available)
             "priorityId": 3,
             "estimatedHours": 0
