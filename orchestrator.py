@@ -175,6 +175,10 @@ class Orchestrator:
         print("--------------------------------------------\n")
 
         try:
+            # 0. Sync Git Activity (GitHub -> Backlog)
+            self.sync_git_activity()
+
+            # 1. Ingest Tasks (Sheet -> Standardized Objects)
             tasks = self.ingestor.get_live_tasks()
             print(f"Found {len(tasks)} valid tasks in Google Sheets.")
             
