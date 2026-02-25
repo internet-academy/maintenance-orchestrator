@@ -55,15 +55,22 @@ class RepoScanner:
             model_file = self.repo_path / app / "models.py"
             if model_file.exists():
                 content = model_file.read_text()
-                models = re.findall(r"class\s+(\w+)\(models\.Model\)", content)
-                if models:
-                    self.blueprint["models"][app] = models
+                # L2: Extract Models AND their Fields
+                model_blocks = re.findall(r"class\s+(\w+)\(models\.Model\):(.*?)class", content + "\nclass", re.DOTALL)
+                for model_name, body in model_blocks:
+                    fields = re.findall(r"(\w+)\s*=\s*models\.", body)
+                    if fields:
+                        self.blueprint["models"][f"{app}.{model_name}"] = fields
 
     def _parse_go(self):
-        # Scan backend/routes for Go route names
+        # L2: Extract Go Routes AND Function Signatures
         routes_dir = self.repo_path / "backend" / "routes"
         if routes_dir.exists():
-            self.blueprint["go_routes"] = [f.stem for f in routes_dir.glob("*.go")]
+            for f in routes_dir.glob("*.go"):
+                content = f.read_text()
+                funcs = re.findall(r"func\s+(\w+)\s*\(", content)
+                if funcs:
+                    self.blueprint["go_routes"].append({f.stem: funcs})
 
     def generate_markdown(self):
         md = []
@@ -71,12 +78,9 @@ class RepoScanner:
         md.append(f"\n## 🛠 TECH STACK: {', '.join(self.blueprint['tech_stack'])}")
         
         if self.blueprint["django_apps"]:
-            md.append("\n### 📦 DJANGO APPS")
-            md.append(", ".join(self.blueprint["django_apps"]))
-            
-            md.append("\n### 🏗 DATA MODELS (Django)")
-            for app, models in self.blueprint["models"].items():
-                md.append(f"- **{app}**: {', '.join(models)}")
+            md.append("\n### 🏗 DATA MODELS (Django L2)")
+            for model_path, fields in self.blueprint["models"].items():
+                md.append(f"- **{model_path}**: `[{', '.join(fields[:10])}]`")
 
         if self.blueprint["go_routes"]:
             md.append("\n### 🛣 GO ROUTES")
