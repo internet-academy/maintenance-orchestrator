@@ -2,8 +2,16 @@
 
 ## 🛠 TECH STACK: Go, Node.js/Frontend
 
-### 🛣 GO ROUTES
-support, itTest, submission, routes, notification, user, auth, reservation, od
+### 🛣 GO ROUTES (L2)
+- **support.go**: `[SupportRoutes]`
+- **itTest.go**: `[ITTestRoutes]`
+- **submission.go**: `[SetupSubmissionRoutes]`
+- **routes.go**: `[SetupRoutes]`
+- **notification.go**: `[NotificationRoutes]`
+- **user.go**: `[UserRoutes]`
+- **auth.go**: `[AuthRoutes]`
+- **reservation.go**: `[ReservationRoutes]`
+- **od.go**: `[ODRoutes]`
 
 ## 📂 DIRECTORY STRUCTURE (L2)
 ```
