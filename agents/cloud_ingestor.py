@@ -103,6 +103,7 @@ class CloudIngestor:
         """
         block_rows = []
         for i in range(start_index, min(start_index + 15, len(data))):
+            # If we hit a new numeric ID, the current block ends
             if i > start_index and data[i] and data[i][0].strip().isdigit():
                 break
             block_rows.append(data[i])
@@ -122,38 +123,65 @@ class CloudIngestor:
             "anchors": {} 
         }
 
+        # Multi-row content capture state
+        content_capture_active = False
+        translation_capture_active = False
+
         for i, row in enumerate(block_rows):
             abs_row_idx = start_index + i
             
-            # Content/Translation Fallback (Fixed Offsets)
-            if i == 2 and len(row) > 3: task["content"] = row[3].strip()
-            if i == 3 and len(row) > 3: task["english_translation_fallback"] = row[3].strip()
+            # --- LABEL-BASED CONTENT SEARCH ---
+            for col_idx, cell_raw in enumerate(row):
+                cell_clean = str(cell_raw).strip()
+                
+                # Identify PIC, Status, Est Hours, Backlog ID (Columns 8+)
+                if col_idx >= 8:
+                    if cell_clean == "PIC" and col_idx + 1 < len(row):
+                        task["pic"] = row[col_idx + 1].strip()
+                        task["anchors"]["pic"] = (abs_row_idx, col_idx)
+                    
+                    if cell_clean == "Status" and col_idx + 1 < len(row):
+                        task["current_sheet_status"] = row[col_idx + 1].strip()
+                        task["anchors"]["status"] = (abs_row_idx, col_idx)
+                    
+                    if "Estimated Hours" in cell_clean and col_idx + 1 < len(row):
+                        try:
+                            val = row[col_idx + 1].strip()
+                            task["estimated_hours"] = float(val) if val else 1.0
+                        except (ValueError, TypeError):
+                            task["estimated_hours"] = 1.0
+                        task["anchors"]["est_hours"] = (abs_row_idx, col_idx)
+                    
+                    if ("Backlog ID" in cell_clean or "Ticket" in cell_clean) and col_idx + 1 < len(row):
+                        raw_id = row[col_idx + 1].strip()
+                        if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
+                            task["backlog_id"] = raw_id
+                        task["anchors"]["backlog_id"] = (abs_row_idx, col_idx)
 
-            # Dynamic Anchor Search (Restricted to Columns 8-15 / I-O)
-            for col_idx in range(8, min(15, len(row))):
-                cell_clean = str(row[col_idx]).strip()
+                # Identify Content and Translation (Columns 0-7)
+                if cell_clean == "Content" and col_idx + 1 < len(row):
+                    content_capture_active = True
+                    translation_capture_active = False
+                    task["anchors"]["content"] = (abs_row_idx, col_idx)
+                    continue # Start capturing from the NEXT row/cell logic
                 
-                if cell_clean == "PIC" and col_idx + 1 < len(row):
-                    task["pic"] = row[col_idx + 1].strip()
-                    task["anchors"]["pic"] = (abs_row_idx, col_idx)
-                
-                if cell_clean == "Status" and col_idx + 1 < len(row):
-                    task["current_sheet_status"] = row[col_idx + 1].strip()
-                    task["anchors"]["status"] = (abs_row_idx, col_idx)
-                
-                if "Estimated Hours" in cell_clean and col_idx + 1 < len(row):
-                    try:
-                        val = row[col_idx + 1].strip()
-                        task["estimated_hours"] = float(val) if val else 1.0
-                    except (ValueError, TypeError):
-                        task["estimated_hours"] = 1.0
-                    task["anchors"]["est_hours"] = (abs_row_idx, col_idx)
-                
-                if ("Backlog ID" in cell_clean or "Ticket" in cell_clean) and col_idx + 1 < len(row):
-                    raw_id = row[col_idx + 1].strip()
-                    if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
-                        task["backlog_id"] = raw_id
-                    task["anchors"]["backlog_id"] = (abs_row_idx, col_idx)
+                if "Translation" in cell_clean and col_idx + 1 < len(row):
+                    translation_capture_active = True
+                    content_capture_active = False
+                    task["anchors"]["translation"] = (abs_row_idx, col_idx)
+                    continue
+
+            # --- MULTI-ROW VALUE AGGREGATION ---
+            # Content usually sits in Column 3 (D) after the 'Content' label appears
+            if content_capture_active and len(row) > 3:
+                val = row[3].strip()
+                if val and val != "Content":
+                    task["content"] = (task["content"] + "\n" + val).strip()
+            
+            if translation_capture_active and len(row) > 3:
+                val = row[3].strip()
+                if val and "Translation" not in val:
+                    task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
 
         # Final Fallback for Backlog ID (Check Column J of first row)
         if not task["backlog_id"] and len(first_row) > 9:
