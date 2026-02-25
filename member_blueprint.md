@@ -11,10 +11,6 @@ users, chat, bohr_corp, bohr_api, bohr_common
 
 ## 📂 DIRECTORY STRUCTURE (L2)
 ```
-├── -F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75vY0rw-oME.pkl
-├── ECHONET IoT MASTER登録申請申請書.xlsx
-├── NotoSansJP-Regular.pkl
-├── NotoSansJP-VariableFont_wght.pkl
 ├── README.md
 ├── __init__.py
 ├── bohr/
@@ -128,7 +124,6 @@ users, chat, bohr_corp, bohr_api, bohr_common
     ├── corporation/
 ├── coupon_calc_script.py
 ├── doc/
-  ├── member_documentation.pdf
   ├── permissions.txt
   ├── setup
 ├── documentation_website/
@@ -231,8 +226,6 @@ users, chat, bohr_corp, bohr_api, bohr_common
     ├── widgets.py
   ├── wsgi.py
 ├── logs/
-  ├── logfile.log
-  ├── sent_logfile.log
 ├── manage.py
 ├── mem/
   ├── media/
@@ -292,8 +285,6 @@ users, chat, bohr_corp, bohr_api, bohr_common
     ├── redmond/
   ├── font/
     ├── -F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75vY0rw-oME.ttf
-    ├── NotoSansJP-Regular.cw127.pkl
-    ├── NotoSansJP-Regular.pkl
     ├── NotoSansJP-Regular.ttf
   ├── fontawesome-5.15.2/
     ├── LICENSE.txt
@@ -312,45 +303,28 @@ users, chat, bohr_corp, bohr_api, bohr_common
     ├── examples/
     ├── lib/
   ├── images/
-    ├── 404.png
     ├── IA_logo_hankou.PNG
     ├── IBJ_logo_hankou.PNG
     ├── Thumbs.db
-    ├── apply.png
     ├── beta/
-    ├── change.png
     ├── dload.gif
     ├── down.gif
     ├── down_no.gif
-    ├── edit.png
     ├── eq.gif
     ├── eq_no.gif
     ├── face/
     ├── hanko.PNG
-    ├── head.png
-    ├── heart.png
-    ├── ia.png
-    ├── ia_logo.png
-    ├── ibj.png
     ├── internet_academy_address.PNG
-    ├── internet_academy_contact.png
-    ├── intro_full.png
-    ├── intro_left.png
     ├── link.gif
     ├── list.gif
     ├── list2.gif
     ├── logo.gif
     ├── logo_bk.gif
-    ├── od.png
     ├── sort_asc.gif
-    ├── sort_ascd.png
-    ├── sort_both.png
     ├── sort_desc.gif
-    ├── sort_descd.png
     ├── sp.gif
     ├── spacer.gif
     ├── stars/
-    ├── tooltip.png
     ├── up.gif
     ├── up_no.gif
   ├── js/
@@ -361,8 +335,6 @@ users, chat, bohr_corp, bohr_api, bohr_common
     ├── jquery-ui-1.10.4.custom.min.js
     ├── tools.js
   ├── library/
-    ├── delete_books.xlsx
-    ├── import_books.xlsx
   ├── models/
     ├── face_detection_yunet_2023mar.onnx
   ├── nested_admin/

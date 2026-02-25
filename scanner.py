@@ -16,7 +16,8 @@ class RepoScanner:
             "go_routes": [],
             "structure": []
         }
-        self.blacklist = {".git", "node_modules", "venv", "__pycache__", ".env", "credentials.json", ".pkl"}
+        self.blacklist_names = {".git", "node_modules", "venv", "__pycache__", ".env", "credentials.json"}
+        self.blacklist_extensions = {".pkl", ".xlsx", ".pdf", ".png", ".jpg", ".zip", ".log"}
 
     def scan(self, current_path, indent=0, max_depth=2):
         if indent > max_depth:
@@ -25,10 +26,9 @@ class RepoScanner:
         try:
             items = sorted(os.listdir(current_path))
             for item in items:
-                if item in self.blacklist or item.startswith("."):
-                    continue
-                
                 item_path = current_path / item
+                if item in self.blacklist_names or item.startswith(".") or item_path.suffix in self.blacklist_extensions:
+                    continue
                 prefix = "  " * indent + "├── "
                 if item_path.is_dir():
                     self.blueprint["structure"].append(f"{prefix}{item}/")

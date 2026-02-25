@@ -63,7 +63,6 @@ support, itTest, submission, routes, notification, user, auth, reservation, od
     ├── supportController_test.go
     ├── user_test.go
   ├── tmp/
-    ├── build-errors.log
     ├── main
   ├── utils/
     ├── datetime.go
@@ -163,7 +162,6 @@ support, itTest, submission, routes, notification, user, auth, reservation, od
   ├── tsconfig.json
   ├── tsconfig.node.json
   ├── vite.config.ts
-├── frontend_dev.log
 ├── package-lock.json
 ├── package.json
 ├── scripts/
