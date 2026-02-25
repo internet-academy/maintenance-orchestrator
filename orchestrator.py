@@ -7,8 +7,14 @@ from agents.load_balancer import LoadBalancer, DeveloperTimeline
 from datetime import datetime
 
 class Orchestrator:
-    def __init__(self, dry_run=False):
-        self.dry_run = dry_run
+    def __init__(self, dry_run=None):
+        if dry_run is None:
+            # Respect environment variable, default to False (Live)
+            env_val = os.getenv('DRY_RUN', 'False').lower()
+            self.dry_run = env_val in ['true', '1', 't', 'y', 'yes']
+        else:
+            self.dry_run = dry_run
+            
         if self.dry_run:
             print("!!! RUNNING IN DRY RUN MODE - NO API MUTATIONS WILL OCCUR !!!")
         
