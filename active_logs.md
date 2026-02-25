@@ -96,3 +96,4 @@ New requirement: The Google Sheet (CSV) uses a form-block layout (multi-row per 
 >>>>>>> Stashed changes
 STRICT MANDATE: Every task must follow the Architect -> Specialist -> Sentry pipeline with explicit 'ROUTING TO' headers. Current Phase: Ingestor Refinement.
 Feb 25, 2026: Troubleshooting FortiClient VPN connectivity on Windows host via WSL. Issue: 'Connected' but no data received (Adapter stuck in Media Disconnected, getting APIPA 169.254.x.x, no routes). Diagnostics revealed strict enterprise lock-down (services unrestartable) and a likely Server-Side Policy/Compliance Rejection preventing DHCP lease and route injection. Troubleshooting paused by user.
+Feb 25, 2026: Standardized agent file paths to '~/projects/personal-agents/' globally (updated GEMINI.md and all agent files). Fixed Advanced Vocational Benefit email bug in bohr_api/views.py and created PR #2527 against test_restore.
