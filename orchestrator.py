@@ -121,6 +121,7 @@ class Orchestrator:
         # 1. Search for existing
         parent = self.load_balancer.find_issue_by_summary(summary, project_id)
         if parent:
+            print(f"HIERARCHY: Found existing parent task '{summary}' (ID: {parent['id']})")
             return parent['id']
             
         # 2. Create if not exists
@@ -436,7 +437,12 @@ class Orchestrator:
                     print(f"DEBUG: Calculated projected finish for verified update: {due_date}")
                     
                     # LINK TO PARENT based on deadline
-                    task['parent_id'] = self._get_or_create_parent_task(due_date)
+                    target_parent_id = self._get_or_create_parent_task(due_date)
+                    current_parent_id = latest_backlog_issue.get('parentIssueId')
+                    
+                    if target_parent_id != current_parent_id:
+                        task['parent_id'] = target_parent_id
+                        print(f"HIERARCHY: Updating parent link to {target_parent_id}")
             else:
                 print(f"ACTION: ID {backlog_id} appears to be a copy. Resetting to CREATE mode for this row.")
                 backlog_id = None # Force creation of a fresh ticket
