@@ -7,8 +7,9 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
-REPO_PATH=$(pwd)
+REPO_PATH=${1:-$(pwd)}
 echo "🔍 Sentry CI: Scanning $REPO_PATH..."
+cd "$REPO_PATH" || exit 1
 
 # 1. Stack Detection
 if [ -f "manage.py" ]; then
