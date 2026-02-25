@@ -51,9 +51,10 @@ class RepoScanner:
     def _extract_api_calls(self, file_path):
         try:
             content = file_path.read_text()
-            # Match strings like "/api/v1/user" or similar
-            urls = re.findall(r"['\"](/api/[\w/_-]+)['\"]", content)
+            # Match strings like "/api/..." or "/support/..." used in axios/fetch
+            urls = re.findall(r"['\"](/api/[^\s'\"]+)['\"]", content)
             if urls:
+                # print(f"DEBUG: Found {len(urls)} API calls in {file_path.name}")
                 self.blueprint["api_calls"].append({file_path.name: list(set(urls))})
         except Exception:
             pass
