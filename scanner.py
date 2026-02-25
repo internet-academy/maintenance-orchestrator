@@ -83,8 +83,10 @@ class RepoScanner:
                 md.append(f"- **{model_path}**: `[{', '.join(fields[:10])}]`")
 
         if self.blueprint["go_routes"]:
-            md.append("\n### 🛣 GO ROUTES")
-            md.append(", ".join(self.blueprint["go_routes"]))
+            md.append("\n### 🛣 GO ROUTES (L2)")
+            for route_map in self.blueprint["go_routes"]:
+                for file_name, funcs in route_map.items():
+                    md.append(f"- **{file_name}.go**: `[{', '.join(funcs[:5])}]`")
 
         md.append("\n## 📂 DIRECTORY STRUCTURE (L2)")
         md.append("```")
