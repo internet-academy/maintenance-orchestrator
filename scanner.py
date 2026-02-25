@@ -141,7 +141,9 @@ class RepoScanner:
 
         if self.blueprint["api_calls"]:
             md.append("\n### 🌐 API CONSUMPTION (L3 - Vue/TS)")
-            for call_map in self.blueprint["api_calls"][:15]:
+            # Dedup and sort
+            sorted_calls = sorted(self.blueprint["api_calls"], key=lambda x: list(x.keys())[0])
+            for call_map in sorted_calls[:20]:
                 for file_name, urls in call_map.items():
                     md.append(f"- **{file_name}** -> `{', '.join(urls)}`")
 
