@@ -4,6 +4,7 @@ import hashlib
 from google import genai
 from agents.cloud_ingestor import CloudIngestor
 from agents.load_balancer import LoadBalancer, DeveloperTimeline
+from agents.git_sync import GitSync
 from datetime import datetime
 
 class Orchestrator:
