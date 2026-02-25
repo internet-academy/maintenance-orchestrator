@@ -2,12 +2,12 @@
 
 ## 🛠 TECH STACK: Django
 
-### 📦 DJANGO APPS
-users, chat, bohr_corp, bohr_api, bohr_common
-
-### 🏗 DATA MODELS (Django)
-- **users**: Profile, UserEmail, UserSession
-- **chat**: ChatUser, Room, Participant, Message
+### 🏗 DATA MODELS (Django L2)
+- **users.Profile**: `[user, on_delete, name, kana, gender, pic, birthday, summary]`
+- **users.UserSession**: `[user, on_delete, session, on_delete]`
+- **chat.ChatUser**: `[user, on_delete, pic, name, type, created_at]`
+- **chat.Room**: `[name, pic, last_message, on_delete, platform, private, participant_count, created_at, unread_messages]`
+- **chat.Message**: `[room, on_delete, chat_user, on_delete, message, created_at]`
 
 ## 📂 DIRECTORY STRUCTURE (L2)
 ```

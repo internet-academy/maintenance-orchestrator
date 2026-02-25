@@ -122,6 +122,16 @@ class LoadBalancer:
                 return issue
         return None
 
+    def update_issue_status(self, issue_id_or_key, status_id):
+        """Updates the status of a Backlog issue."""
+        endpoint = f"{self.base_url}/issues/{issue_id_or_key}"
+        params = {"apiKey": self.api_key}
+        payload = {"statusId": status_id}
+        
+        response = requests.patch(endpoint, params=params, data=payload)
+        response.raise_for_status()
+        return response.json()
+
     def update_backlog_issue(self, issue_id_or_key, task_data):
         """
         Updates an existing issue in Backlog.
