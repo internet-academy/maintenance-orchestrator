@@ -23,9 +23,6 @@ class RepoScanner:
         self.blacklist_extensions = {".pkl", ".xlsx", ".pdf", ".png", ".jpg", ".zip", ".log"}
 
     def scan(self, current_path, indent=0, max_depth=2):
-        if indent > max_depth:
-            return
-        
         try:
             items = sorted(os.listdir(current_path))
             for item in items:
@@ -33,12 +30,18 @@ class RepoScanner:
                 if item in self.blacklist_names or item.startswith(".") or item_path.suffix in self.blacklist_extensions:
                     continue
                 
-                prefix = "  " * indent + "├── "
+                # Only add to structure if within max_depth
+                if indent <= max_depth:
+                    prefix = "  " * indent + "├── "
+                    if item_path.is_dir():
+                        self.blueprint["structure"].append(f"{prefix}{item}/")
+                    else:
+                        self.blueprint["structure"].append(f"{prefix}{item}")
+
+                # ALWAYS recurse for L3 extraction (regardless of tree depth)
                 if item_path.is_dir():
-                    self.blueprint["structure"].append(f"{prefix}{item}/")
                     self.scan(item_path, indent + 1, max_depth)
                 else:
-                    self.blueprint["structure"].append(f"{prefix}{item}")
                     # L3: Cross-Stack API Call Detection (Vue/JS)
                     if item_path.suffix in {".vue", ".ts", ".js"}:
                         self._extract_api_calls(item_path)
