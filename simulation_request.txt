@@ -1,2 +1,0 @@
-TASK: Implement 'Completion Certificate' (slug: completion_certificate) following the 'Enrollment Certificate' pattern.
-GOAL: Identify all files in BOTH repos that need surgical modification.
