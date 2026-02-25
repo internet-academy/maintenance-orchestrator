@@ -95,3 +95,4 @@ Feb 17, 2026: Master Agent session initialized. Context synchronized from Bohr, 
 New requirement: The Google Sheet (CSV) uses a form-block layout (multi-row per ID). Ingestor must be a stateful parser. Pattern identified: '🆕UX設計・システム開発管理シート - エラー報告_YYMM.csv'.
 >>>>>>> Stashed changes
 STRICT MANDATE: Every task must follow the Architect -> Specialist -> Sentry pipeline with explicit 'ROUTING TO' headers. Current Phase: Ingestor Refinement.
+Feb 25, 2026: Troubleshooting FortiClient VPN connectivity on Windows host via WSL. Issue: 'Connected' but no data received (Adapter stuck in Media Disconnected, getting APIPA 169.254.x.x, no routes). Diagnostics revealed strict enterprise lock-down (services unrestartable) and a likely Server-Side Policy/Compliance Rejection preventing DHCP lease and route injection. Troubleshooting paused by user.
