@@ -4,3 +4,4 @@ holidays
 requests
 python-dotenv
 google-genai
+PyGithub
