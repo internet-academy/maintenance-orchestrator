@@ -3,11 +3,22 @@
 ## 🛠 TECH STACK: Django
 
 ### 🏗 DATA MODELS (Django L2)
-- **users.Profile**: `[user, on_delete, name, kana, gender, pic, birthday, summary]`
-- **users.UserSession**: `[user, on_delete, session, on_delete]`
-- **chat.ChatUser**: `[user, on_delete, pic, name, type, created_at]`
-- **chat.Room**: `[name, pic, last_message, on_delete, platform, private, participant_count, created_at, unread_messages]`
-- **chat.Message**: `[room, on_delete, chat_user, on_delete, message, created_at]`
+- **users.Profile**: `[user, name, kana, gender, pic, birthday, summary]`
+- **users.UserEmail**: `[user, email, is_confirmed, is_primary]`
+- **users.UserSession**: `[user, session]`
+- **chat.ChatUserManager**: `[chat_user, chat_user]`
+- **chat.ChatUser**: `[user, pic, name, type, created_at, objects, unread_messages]`
+- **chat.RoomManager**: `[room, room, room]`
+- **chat.Room**: `[name, pic, last_message, platform, private, participant_count, created_at, objects, message, tmp]`
+- **chat.Participant**: `[room, chat_user, unread_messages, created_at]`
+- **chat.Message**: `[room, chat_user, message, created_at, created_at]`
+
+### 🔗 MODEL RELATIONSHIPS (L3)
+- chat.Message -> ChatUser
+- chat.Message -> Room
+- chat.Participant -> ChatUser
+- chat.Participant -> Room
+- chat.Room -> Message
 
 ## 📂 DIRECTORY STRUCTURE (L2)
 ```

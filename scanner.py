@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 import re
+import ast
 from pathlib import Path
 
 class RepoScanner:
@@ -13,7 +14,9 @@ class RepoScanner:
             "tech_stack": [],
             "django_apps": [],
             "models": {},
+            "relationships": [],
             "go_routes": [],
+            "api_calls": [],
             "structure": []
         }
         self.blacklist_names = {".git", "node_modules", "venv", "__pycache__", ".env", "credentials.json"}
@@ -29,13 +32,27 @@ class RepoScanner:
                 item_path = current_path / item
                 if item in self.blacklist_names or item.startswith(".") or item_path.suffix in self.blacklist_extensions:
                     continue
+                
                 prefix = "  " * indent + "├── "
                 if item_path.is_dir():
                     self.blueprint["structure"].append(f"{prefix}{item}/")
                     self.scan(item_path, indent + 1, max_depth)
                 else:
                     self.blueprint["structure"].append(f"{prefix}{item}")
+                    # L3: Cross-Stack API Call Detection (Vue/JS)
+                    if item_path.suffix in {".vue", ".ts", ".js"}:
+                        self._extract_api_calls(item_path)
         except PermissionError:
+            pass
+
+    def _extract_api_calls(self, file_path):
+        try:
+            content = file_path.read_text()
+            # Match strings like "/api/v1/user" or similar
+            urls = re.findall(r"['\"](/api/[\w/_-]+)['\"]", content)
+            if urls:
+                self.blueprint["api_calls"].append({file_path.name: list(set(urls))})
+        except Exception:
             pass
 
     def detect_tech_stack(self):
@@ -54,17 +71,42 @@ class RepoScanner:
         for app in apps:
             model_file = self.repo_path / app / "models.py"
             if model_file.exists():
-                content = model_file.read_text()
-                # L2: Extract Models AND their Fields
-                model_blocks = re.findall(r"class\s+(\w+)\(models\.Model\):(.*?)class", content + "\nclass", re.DOTALL)
-                for model_name, body in model_blocks:
-                    fields = re.findall(r"(\w+)\s*=\s*models\.", body)
-                    if fields:
-                        self.blueprint["models"][f"{app}.{model_name}"] = fields
+                try:
+                    tree = ast.parse(model_file.read_text())
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.ClassDef):
+                            model_name = node.name
+                            fields = []
+                            for subnode in ast.walk(node):
+                                if isinstance(subnode, ast.Assign) and isinstance(subnode.value, ast.Call):
+                                    # Detect Django fields
+                                    func_name = ""
+                                    if hasattr(subnode.value.func, 'attr'):
+                                        func_name = subnode.value.func.attr
+                                    elif hasattr(subnode.value.func, 'id'):
+                                        func_name = subnode.value.func.id
+                                        
+                                    if func_name in ['ForeignKey', 'OneToOneField', 'ManyToManyField']:
+                                        # L3: Extract relationship target
+                                        if subnode.value.args and isinstance(subnode.value.args[0], (ast.Constant, ast.Str)):
+                                            target = subnode.value.args[0].s if hasattr(subnode.value.args[0], 's') else subnode.value.args[0].value
+                                            self.blueprint["relationships"].append(f"{app}.{model_name} -> {target}")
+                                    
+                                    # L2: Standard field extraction
+                                    if isinstance(subnode.targets[0], ast.Name):
+                                        fields.append(subnode.targets[0].id)
+                            
+                            if fields:
+                                self.blueprint["models"][f"{app}.{model_name}"] = fields[:10]
+                except Exception:
+                    pass
 
     def _parse_go(self):
-        # L2: Extract Go Routes AND Function Signatures
+        # Scan backend/routes for Go route names
         routes_dir = self.repo_path / "backend" / "routes"
+        if not routes_dir.exists():
+            routes_dir = self.repo_path / "routes"
+
         if routes_dir.exists():
             for f in routes_dir.glob("*.go"):
                 content = f.read_text()
@@ -80,13 +122,24 @@ class RepoScanner:
         if self.blueprint["django_apps"]:
             md.append("\n### 🏗 DATA MODELS (Django L2)")
             for model_path, fields in self.blueprint["models"].items():
-                md.append(f"- **{model_path}**: `[{', '.join(fields[:10])}]`")
+                md.append(f"- **{model_path}**: `[{', '.join(fields)}]`")
+            
+            if self.blueprint["relationships"]:
+                md.append("\n### 🔗 MODEL RELATIONSHIPS (L3)")
+                for rel in sorted(list(set(self.blueprint["relationships"])))[:15]:
+                    md.append(f"- {rel}")
 
         if self.blueprint["go_routes"]:
             md.append("\n### 🛣 GO ROUTES (L2)")
             for route_map in self.blueprint["go_routes"]:
                 for file_name, funcs in route_map.items():
                     md.append(f"- **{file_name}.go**: `[{', '.join(funcs[:5])}]`")
+
+        if self.blueprint["api_calls"]:
+            md.append("\n### 🌐 API CONSUMPTION (L3 - Vue/TS)")
+            for call_map in self.blueprint["api_calls"][:15]:
+                for file_name, urls in call_map.items():
+                    md.append(f"- **{file_name}** -> `{', '.join(urls)}`")
 
         md.append("\n## 📂 DIRECTORY STRUCTURE (L2)")
         md.append("```")
