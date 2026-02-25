@@ -9,15 +9,15 @@ sudo apt update && sudo apt install inotify-tools
 ```
 
 ## 2. Path Standardization
-The system expects `personal-agents` to live in `~/personal-projects/`. If you have it elsewhere, move it or link it:
+The system expects `personal-agents` to live in `~/projects/`. If you have it elsewhere, move it or link it:
 ```bash
 # Ensure the parent directory exists
-mkdir -p ~/personal-projects
+mkdir -p ~/projects
 mkdir -p ~/projects
 
 # If your repo is currently in ~/projects/personal-agents:
-mv ~/projects/personal-agents ~/personal-projects/
-ln -s ~/personal-projects/personal-agents ~/projects/personal-agents
+mv ~/projects/personal-agents ~/projects/
+ln -s ~/projects/personal-agents ~/projects/personal-agents
 ```
 
 ## 3. Install the Service
@@ -57,4 +57,4 @@ journalctl --user -u gemini-sync.service -f
 ```
 
 ---
-*Note: The `watcher.sh` and `sync-all.sh` scripts are already located in `~/personal-projects/` and are synced via Git. If they are missing on a new machine, clone `personal-projects` first.*
+*Note: The `watcher.sh` and `sync-all.sh` scripts are already located in `~/projects/` and are synced via Git. If they are missing on a new machine, clone `projects` first.*

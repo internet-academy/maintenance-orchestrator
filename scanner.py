@@ -39,10 +39,34 @@ class RepoScanner:
     def detect_tech_stack(self):
         if (self.repo_path / "manage.py").exists():
             self.blueprint["tech_stack"].append("Django")
+            self._parse_django()
         if (self.repo_path / "backend/go.mod").exists() or (self.repo_path / "go.mod").exists():
             self.blueprint["tech_stack"].append("Go")
         if (self.repo_path / "package.json").exists():
             self.blueprint["tech_stack"].append("Node.js/Frontend")
+
+    def _parse_django(self):
+        """Extracts high-signal Django info."""
+        apps = []
+        for item in self.repo_path.iterdir():
+            if item.is_dir() and (item / "apps.py").exists():
+                apps.append(item.name)
+        self.blueprint["django_apps"] = apps
+        
+        # Look for models in each app
+        models = {}
+        for app in apps:
+            model_file = self.repo_path / app / "models.py"
+            if model_file.exists():
+                try:
+                    content = model_file.read_text()
+                    found = [line.split("(models.Model)")[0].replace("class ", "").strip() 
+                             for line in content.splitlines() if "(models.Model)" in line]
+                    if found:
+                        models[app] = found
+                except Exception:
+                    pass
+        self.blueprint["models"] = models
 
     def run(self):
         print(f"🚀 Scanning {self.repo_path}...")
@@ -59,17 +83,23 @@ class RepoScanner:
             print(output)
 
     def generate_markdown(self):
-        md = [f"# REPO BLUEPRINT: {self.blueprint['name']}
-"]
-        md.append(f"## 🛠 TECH STACK: {', '.join(self.blueprint['tech_stack'])}
-")
+        md = [f"# REPO BLUEPRINT: {self.blueprint['name']}\n"]
+        md.append(f"## 🛠 TECH STACK: {', '.join(self.blueprint['tech_stack'])}\n")
+        
+        if "Django" in self.blueprint["tech_stack"]:
+            md.append("### 📦 DJANGO APPS")
+            md.append(", ".join(self.blueprint.get("django_apps", [])) + "\n")
+            
+            md.append("### 🏗 DATA MODELS")
+            for app, models in self.blueprint.get("models", {}).items():
+                md.append(f"- **{app}**: {', '.join(models)}")
+            md.append("")
+
         md.append("## 📂 DIRECTORY STRUCTURE (L2)")
         md.append("```")
         md.append(self._format_structure(self.blueprint["structure"]))
-        md.append("```
-")
-        return "
-".join(md)
+        md.append("```\n")
+        return "\n".join(md)
 
     def _format_structure(self, structure, indent=0):
         lines = []
@@ -80,8 +110,7 @@ class RepoScanner:
                 lines.extend(self._format_structure(content, indent + 1))
             else:
                 lines.append(f"{prefix}{name}")
-        return "
-".join(lines)
+        return "\n".join(lines)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a Repo Blueprint.")

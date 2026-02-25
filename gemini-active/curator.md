@@ -12,7 +12,7 @@
 - **On Discovery:** If `@Architect` makes a new design decision, record it immediately in the Permanent Wiki.
 
 ## PROJECT CONTEXT
-- Primary focus: `~/ia/wiki`, `~/ia/docs`, and the memory files in `~/personal-projects/personal-agents/`.
+- Primary focus: `~/ia/wiki`, `~/ia/docs`, and the memory files in `~/projects/personal-agents/`.
 
 
 ## LESSONS LEARNED (ANTI-PATTERNS)

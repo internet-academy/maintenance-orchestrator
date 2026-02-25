@@ -79,13 +79,13 @@ Feb 17, 2026: Configured Gemini Auto-Sync systemd service. Created ~/.config/sys
 <<<<<<< Updated upstream
 Feb 17, 2026: Finalized Gemini Auto-Sync Infrastructure.
 - **Service:** Installed 'gemini-sync.service' as a systemd user unit.
-- **Pathing Fix:** Resolved path ambiguity by standardizing on '/home/min/personal-projects/personal-agents/'. Updated 'GEMINI.md' and created a symlink from '~/projects/' to ensure CLI memory consistency.
+- **Pathing Fix:** Resolved path ambiguity by standardizing on '/home/min/projects/personal-agents/'. Updated 'GEMINI.md' and created a symlink from '~/projects/' to ensure CLI memory consistency.
 - **Responsiveness:** Optimized 'watcher.sh' to trigger on git branch updates (refs/heads) and reduced debounce to 10s.
 - **Robustness:** Updated 'sync-all.sh' to skip repos with active conflicts/rebases and to pull from the current local branch instead of assuming master.
 - **Lesson Learned:** Use '--exclude' in inotifywait carefully; watching '.git/refs/heads/' is the most efficient way to detect manual commits for auto-pushing without 'Live Mode'.
 Feb 17, 2026: Infrastructure & Memory Persistence Update.
-- **Automated Intelligence:** Implemented 'project_states.json' generation in 'sync-all.sh'. Gemini now tracks branch, dirty status, and last commits for all projects in ~/ia/ and ~/personal-projects/ across devices.
-- **Unified Workspace:** Standardized 'personal-agents' to '/home/min/personal-projects/personal-agents/' and updated GEMINI.md bootstrap paths. Created legacy symlink in '~/projects/'.
+- **Automated Intelligence:** Implemented 'project_states.json' generation in 'sync-all.sh'. Gemini now tracks branch, dirty status, and last commits for all projects in ~/ia/ and ~/projects/ across devices.
+- **Unified Workspace:** Standardized 'personal-agents' to '/home/min/projects/personal-agents/' and updated GEMINI.md bootstrap paths. Created legacy symlink in '~/projects/'.
 - **Replication Ready:** Created 'REPLICATE_SYNC.md' in the memory folder for instant setup on the desktop machine.
 - **Service Optimization:** Service is now hyper-responsive (10s debounce) and watches git refs for manual commit detection.
 - **State Check:** Last session ended with 'BOHR-web' and 'ia-advent-of-code' in dirty states; 'member' rebase was aborted and cleaned.
