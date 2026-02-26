@@ -1,8 +1,152 @@
 # REPO BLUEPRINT: bohr-individual
 
-## 🛠 TECH STACK: Go, Node.js/Frontend
+## 🏗 DATA MODELS (144 discovered)
+- **Go.AdvancedVocationalBenefitApplication**: `[ID, DocumentApplyID, DocumentApply, AAttendanceFlag, BCreditsFlag, CCertificationOfEnrollmentFlag, AAttendanceFormat, BCreditsFormat]`
+- **Go.ApplyCategory**: `[ID, Name, ShortName, Sort, Flag, ApplyTypes]`
+- **Go.ApplyGroup**: `[ID, Name, ShortName, Sort, Flag, ApplyTypes]`
+- **Go.ApplyStatus**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.ApplyType**: `[ID, GroupID, Group, Name, TemplateFile, FileNameFormat, ApplicationCondition, AutomationLevel]`
+- **Go.AttendClass**: `[ID, CustomerID, ScheduleID, M2MID, Date, BranchID, ClassroomID, FreeroomID]`
+- **Go.AttendFlag**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.Base**: `[ID, ConsumptionTax, EntrancePayPrice, BohrBaseURL]`
+- **Go.BenefitContact**: `[ID, ContractID, Contract, StaffID, StateID, State, Note, Time]`
+- **Go.BenefitContactState**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.BenefitTarget**: `[ID, CourseID, Course, CoursePrice, CourseNum, CourseTerm, Sort, Flag]`
+- **Go.BenefitType**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.Branch**: `[ID, Name, Sort, Flag, OfflineFlag]`
+- **Go.BusinessCategory**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.ChangeContract**: `[ID, ContractID, Contract, Date, Price, TaxRate, EntrancePayPrice, TuitionPayPrice]`
+- **Go.Class**: `[ID, Name, ShortName, LessonNum, GroupID, PointNum, TuitionPayPrice, Sort]`
+- **Go.ClassGroup**: `[ID, Name, TuitionPayPrice, PointNum, Flag]`
+- **Go.ClassLesson**: `[ID, LessonClassID, Num, MaxSeats, ExtraLesson, VideoDuration, LessonMaterial, IndDigitalTextLink]`
+- **Go.ClassProgress**: `[ID, CustomerID, ClassNameID, ClassOdProgress, CompletedOdProgDate, HomeworkOdProgress, Sort, Flag]`
+- **Go.ClassType**: `[ID, Name, ShortName, Flag]`
+- **Go.Classroom**: `[ID, Name, ShortName, BranchID, MaxNum, Sort, Flag, Branch]`
+- **Go.ClassroomClass**: `[ID, ClassroomID, ClassroomClassID, LessonNum, MaxNum, Classroom, Class]`
+- **Go.ClassroomOs**: `[ID, ClassroomID, OsID, MaxNum, Classroom, Os]`
+- **Go.ClassroomPeriod**: `[ID, BeginHHII, EndHHII]`
+- **Go.Contract**: `[ID, CustomerID, Customer, TypeID, Type, Date, FirstTime, FirstBranchID]`
+- **Go.ContractCancelType**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.ContractType**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.CorporateAnswers**: `[ID, QuestionID, Title, IsCorrect, Question]`
+- **Go.CorporateExamSettings**: `[ID, ShortName, NoOfQues, RandomQuestionOrder, RandomAnswerOrder, PassPercent, TimeLimit, RetakeTime]`
+- **Go.CorporateQuestions**: `[ID, CreateTime, Title, ClassNameID, LessonNameID, RoleID, TotalTaken, TotalCorrect]`
+- **Go.Course**: `[ID, Name, Flag, Classes]`
+- **Go.CourseSimulationData**: `[CourseName, ClassNames, TuitionPrice, DiscountPercent, Discount, TuitionPriceAfterDiscount, EntrancePrice, TotalPriceBeforeTax]`
+- **Go.CourseSimulationRequest**: `[CalcFlag, CourseID, ClassIDs, NumLessons, ConsumptionTax, NoEntranceFee]`
+- **Go.CourseSimulationResponse**: `[Status, StatusCode, Message, Data]`
+- **Go.CronMail**: `[ID, Subject, Message, ToAddress, FromAddress, CreatedAt, SendAt, SentAt]`
+- **Go.CustomDM**: `[ID]`
+- **Go.Customer**: `[ID, StudentID, StudentPW, LoginFlag, Name, Kana, Romaji, Gender]`
+- **Go.CustomerPosition**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.CustomerTarget**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.DocumentApply**: `[ID, Date, CustomerID, Customer, ApplyTime, ApplyTypeID, ApplyType, RequestedDocument]`
+- **Go.DocumentUpload**: `[ID, CustomerID, Customer, SubmissionType, OtherType, Title, DataType, CategoryType]`
+- **Go.DocumentUploadFormatted**: `[ID, CustomerID, Customer, SubmissionType, OtherType, Title, DataType, CategoryType]`
+- **Go.EchonetKey**: `[ID, KeyID, Secret]`
+- **Go.Enquete**: `[ID, Name, ShortName, Flag]`
+- **Go.EnqueteSubmission**: `[ID, CustomerID, Customer, EnqueteID, Enquete, ContractID, Contract]`
+- **Go.EnvironmentSetting**: `[ID, Name, EnvType, PdfURL, Website, Website2, Website3, Default]`
+- **Go.Event**: `[ID, M2MID, Date, StartTimeHHII, EndTimeHHII, BranchID, ClassroomID, Name]`
+- **Go.EventAttend**: `[ID, EventID, CustomerID, StaffID, Time, AttendStatus, ProcedureID, ImpressionFilled]`
+- **Go.ExamAttend**: `[ID, ExamScheduleID, CustomerID, StaffID, Time, Note, OsID, Points]`
+- **Go.ExamSchedule**: `[ID, ExamID, Date, BeginTime, EndTime, BranchID, ClassroomID, Note]`
+- **Go.ExamScheduleResponse**: `[ID, Name, Date, BeginTime, EndTime, Note, TotalSeats, AvailableSeats]`
+- **Go.FAQCategory**: `[ID, Name, ShortName, Sort, Flag, FAQQAs]`
+- **Go.FAQQA**: `[ID, FAQTypeID, CategoryID, Question, Answer, Sort, Flag, FAQType]`
+- **Go.FAQType**: `[ID, Name, ShortName, Sort, Flag, FAQQAs]`
+- **Go.FileUploadRequest**: `[SubmissionType, OtherType, Title, DataType, CategoryType, Deliverables, TechRequirements, Note]`
+- **Go.Freeroom**: `[ID, BranchID, Name, ShortName, MaxNum, LimitFlag, Sort, Flag]`
+- **Go.FreeroomOs**: `[ID, FreeroomID, OsID, MaxNum, Freeroom, Os]`
+- **Go.FreeroomPeriod**: `[ID, Num, BeginHHII, EndHHII]`
+- **Go.FreeroomPeriodLimit**: `[ID, FreeroomID, PeriodID, MaintenanceDates, LimitDates, Freeroom, Period]`
+- **Go.FreeroomSchedule**: `[ID, FreeroomID, Day, StartID, EndID, Freeroom, Start, End]`
+- **Go.FreeroomSpecialDay**: `[ID, Year, FreeroomID, Day, StartID, EndID, Freeroom, Start]`
+- **Go.IA**: `[ID, DateYYYYMM]`
+- **Go.ITTestFormattedAnswer**: `[QuestionTitle, IsCorrect, Answers]`
+- **Go.ITTestFormattedAnswerItem**: `[AnswerTitle, IsSubmitted, IsCorrect]`
+- **Go.ITTestResultResponse**: `[ID, ClassNameName, LessonNameName, ExamTypeName, StartTime, EndTime, Score, Passed]`
+- **Go.ImpressionCatchup**: `[ID, CustomerID, Customer, PlaylistID, Playlist, ClassId, Cls, ImpressPoint1]`
+- **Go.ImpressionOD**: `[ID, CustomerID, Customer, LessonID, Lesson, StaffID, Staff, PlaylistID]`
+- **Go.IndAnswer**: `[ID, QuizID, QuestionID, Quiz, Question, Answers]`
+- **Go.IndQuizSetting**: `[ID, Type, ClassNameID, LessonNameID, RoleGroupID, RoleID, NoOfQues, RandomQuestionOrder]`
+- **Go.IndustryType**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.JobKeyword**: `[ID, Name, Sort]`
+- **Go.JobVacancy**: `[ID, CompanyName, PersonInCharge, Title, Furigana, Email, Phone, WebsiteURL]`
+- **Go.M2M**: `[ID, CustomerID, M2MSlotID, CustomTelNum, M2MTypeID, M2MClassID, M2MClassNum, OsID]`
+- **Go.M2MBranch**: `[ID, Name, Sort, Flag]`
+- **Go.M2MClassQuestions**: `[ID, M2MID, Class1ID, LessonNum1, Question1, Class2ID, LessonNum2, Question2]`
+- **Go.M2MControl**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.M2MDesign**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.M2MDevelopment**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.M2MEnrollmentMethods**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.M2MInstructor**: `[ID, InstructorID, MeetURL, Note, Sort, Instructor, WebsiteProduction, WebsiteDesign]`
+- **Go.M2MProposal**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.M2MSchedule**: `[ID]`
+- **Go.M2MSlot**: `[ID, InstructorID, Date, TimeID, Instructor, Time]`
+- **Go.M2MState**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.M2MSubCategory**: `[ID, Name, Flag]`
+- **Go.M2MTime**: `[ID, Num, BeginHHII, EndHHII, Note]`
+- **Go.M2MTools**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.M2MType**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.M2MWebsiteProduction**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.Membership**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.MovieType**: `[ID, Name, Flag, Sort]`
+- **Go.Notification**: `[ID, Title, Body, BodyEmail, Time, SentTo, SeenBy]`
+- **Go.Occupation**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.OdLog**: `[ID, CustomerID, VideoID, PlaylistID, OdClassID, OdClassNum, OdVideoNum, Count]`
+- **Go.Os**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.PayState**: `[ID]`
+- **Go.PlayList**: `[ID, Title, InstructorID, LessonNameID, GroupNameID, Sort, TypeID, IsActive]`
+- **Go.PlaylistProgress**: `[ID, CustomerID, PlaylistID, PlaylistOdProgress, Sort, Flag, Customer, Playlist]`
+- **Go.PlaylistType**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.Prefecture**: `[ID, Name, Code]`
+- **Go.PreviousJobTitle**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.PricePeriod**: `[ID, Name, Notes, Sort]`
+- **Go.Procedure**: `[ID, Name]`
+- **Go.PublicWorkResponse**: `[ID, CustomerID, Title, CategoryType, Deliverables, TechRequirements, WebsiteURL, Preview]`
+- **Go.PublicWorksListResponse**: `[Status, StatusCode, Message, Data, Total]`
+- **Go.Purpose**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.QualificationCondition**: `[ID, Name, ShortName, Sort, Flag, ApplyTypes]`
+- **Go.QuestionAnswer**: `[QuestionID, Title, Answers]`
+- **Go.QuestionAnswerChoice**: `[AnswerID, Title]`
+- **Go.QuizAnswerSubmission**: `[QuestionID, AnsOrder, Value]`
+- **Go.QuizSubmissionRequest**: `[TestID, Answers]`
+- **Go.QuizTaken**: `[ID, CustomerID, Start, End, ClassNameID, LessonNameID, RoleID, ExamType]`
+- **Go.RecruitmentConsideration**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.ReskillingCompany**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.RoadmapTasks**: `[ID, ContractID, Contract, CustomerID, Customer, ClassID, Class, LessonNum]`
+- **Go.RoleSubmissionGroup**: `[ID, Name]`
+- **Go.ScheduleClass**: `[ID, Date, ClassroomID, ClassroomPeriodID, LessonID, StaffID, URL, Classroom]`
+- **Go.Skill**: `[ID, CustomerID, TypeID, Time, QuestionNum, RightMinNum, RightNum, Result]`
+- **Go.SkillAnswers**: `[ID, QuestionID, Num, Name, RightFlag, Flag, Question]`
+- **Go.SkillQuestions**: `[ID, SkillTypeID, Num, Name, Flag, SkillType, Answers]`
+- **Go.SkillSubmission**: `[ID, CustomerID, SkillTypeID, SkillQuestionID, SelectedAnswerID, IsCorrect, Customer, SkillType]`
+- **Go.SkillType**: `[ID, Name, ShortName, QuestionNum, RightMinNum, Sort, Flag, Questions]`
+- **Go.Staff**: `[ID, Name, UserID, Pic, User]`
+- **Go.State**: `[ID, Name, ShortName, Sort, Flag]`
+- **Go.Story**: `[ID, Name, Title, Photo, Highlight1, Highlight2, Highlight3, StudentID]`
+- **Go.StoryAnswer**: `[ID, QuestionID, Question, Answer, StoryID, Story]`
+- **Go.StoryCourse**: `[ID, Name, Sort, Flag]`
+- **Go.StoryQuestion**: `[ID, Question, CategoryID, Category, Type, Sort, WordLimit, Flag]`
+- **Go.StoryQuestionCategory**: `[ID, Name]`
+- **Go.StoryTags**: `[ID, StoryID, Story, Tag, Sort]`
+- **Go.StudentExam**: `[ID, Name]`
+- **Go.StudentReviewRequest**: `[Age, SNS, Experience, Photo, Answers]`
+- **Go.StudentReviewResponse**: `[Status, StatusCode, Message, Data]`
+- **Go.SubmissionListResponse**: `[Status, StatusCode, Message, Data, Total]`
+- **Go.SubmissionRequest**: `[SubmissionType, OtherType, Title, DataType, CategoryType, Deliverables, TechRequirements, Note]`
+- **Go.SubmissionResponse**: `[Status, StatusCode, Message, Data]`
+- **Go.TenureStatus**: `[ID, Name, ShortName, Flag, Sort]`
+- **Go.UpdateSubmissionRequest**: `[SubmissionType, OtherType, Title, DataType, CategoryType, Deliverables, TechRequirements, Note]`
+- **Go.User**: `[ID, FirstName, LastName, Email]`
+- **Go.Video**: `[ID, PlaylistID, Name, URL, Section, Duration, Sort, IsExtra]`
+- **Go.VideoGroup**: `[ID, Name, Text, Sort, IsActive]`
+- **Go.VideoProgress**: `[ID, CustomerID, VideoID, VideoOdProgress, Watched, Count, Sort, Flag]`
+- **Go.WorkSoftware**: `[ID, Name, Sort, Flag]`
+- **Go.WorkType**: `[ID, Name, Sort, Flag]`
 
-### 🛣 GO ROUTES (L2)
+### 🛣 GO ROUTES
 - **support.go**: `[SupportRoutes]`
 - **itTest.go**: `[ITTestRoutes]`
 - **submission.go**: `[SetupSubmissionRoutes]`
@@ -13,29 +157,7 @@
 - **reservation.go**: `[ReservationRoutes]`
 - **od.go**: `[ODRoutes]`
 
-### 🌐 API CONSUMPTION (L3 - Vue/TS)
-- **BenefitApplication.vue** -> imports: `[@/api/benefit]`
-- **BenefitApplicationStatus.vue** -> imports: `[@/api/benefit]`
-- **BenefitMyPage.vue** -> imports: `[@/api/benefit]`
-- **BenefitOtherApplication.vue** -> imports: `[@/api/benefit]`
-- **CertificationExamHistory.vue** -> imports: `[@/api/certificationExam]`
-- **CertificationExamRegistration.vue** -> imports: `[@/api/certificationExam]`
-- **DataSubmissionPage.vue** -> imports: `[@/api/data]`
-- **EnvironmentTools.vue** -> imports: `[../api/od]`
-- **FAQPage.vue** -> imports: `[@/api/help]`
-- **ITTest.vue** -> imports: `[../api/itTest, ../api/skillTest]`
-- **ITTestResult.vue** -> imports: `[@/api/skillTest, @/api/itTest]`
-- **JobSearch.vue** -> imports: `[@/api/job]`
-- **LearningSpaceReservations.vue** -> imports: `[@/api/reservation]`
-- **LiveReservationPage.vue** -> imports: `[@/api/reservation]`
-- **NotificationPanel.vue** -> imports: `[@/api/notification]`
-- **ODTable.vue** -> imports: `[../api/od]`
-- **ODVideoPage.vue** -> imports: `[@/api/od]`
-- **ProfileEdit.vue** -> imports: `[@/api/user]`
-- **ProfilePage.vue** -> imports: `[../api/user]`
-- **ReservationEvaluationPopup.vue** -> imports: `[@/api/reservation]`
-
-## 📂 DIRECTORY STRUCTURE (L2)
+## 📂 DIRECTORY STRUCTURE
 ```
 ├── GEMINI.md
 ├── Makefile
