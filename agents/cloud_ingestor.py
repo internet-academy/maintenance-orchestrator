@@ -94,7 +94,8 @@ class CloudIngestor:
             print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'Status', found '{label_cell}'. Write ABORTED.")
 
     def _is_valid(self, task):
-        return "2025" not in task['date'] and task['requester'] != ""
+        # Reject tasks with no date, no requester, OR no content
+        return "2025" not in task['date'] and task['requester'] != "" and task['content'] != ""
 
     def _parse_block_from_list(self, data, start_index):
         """
@@ -159,13 +160,13 @@ class CloudIngestor:
                         task["anchors"]["backlog_id"] = (abs_row_idx, col_idx)
 
                 # Identify Content and Translation (Columns 0-7)
-                if cell_clean == "Content" and col_idx + 1 < len(row):
+                if (cell_clean == "Content" or cell_clean == "内容") and col_idx + 1 < len(row):
                     content_capture_active = True
                     translation_capture_active = False
                     task["anchors"]["content"] = (abs_row_idx, col_idx)
                     continue # Start capturing from the NEXT row/cell logic
                 
-                if "Translation" in cell_clean and col_idx + 1 < len(row):
+                if ("Translation" in cell_clean or "翻訳" in cell_clean) and col_idx + 1 < len(row):
                     translation_capture_active = True
                     content_capture_active = False
                     task["anchors"]["translation"] = (abs_row_idx, col_idx)
@@ -175,12 +176,12 @@ class CloudIngestor:
             # Content usually sits in Column 3 (D) after the 'Content' label appears
             if content_capture_active and len(row) > 3:
                 val = row[3].strip()
-                if val and val != "Content":
+                if val and val not in ["Content", "内容"]:
                     task["content"] = (task["content"] + "\n" + val).strip()
             
             if translation_capture_active and len(row) > 3:
                 val = row[3].strip()
-                if val and "Translation" not in val:
+                if val and "Translation" not in val and "翻訳" not in val:
                     task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
 
         # Final Fallback for Backlog ID (Check Column J of first row)
@@ -189,5 +190,8 @@ class CloudIngestor:
             if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
                 task["backlog_id"] = raw_id
                 task["anchors"]["backlog_id"] = (start_index, 9)
+
+        if task["content"] == "":
+            print(f"DEBUG: Task {task['id']} at R{start_index+1} has NO content captured.")
 
         return task
