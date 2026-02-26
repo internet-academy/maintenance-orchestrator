@@ -1,0 +1,85 @@
+import os
+import json
+import argparse
+from pathlib import Path
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+# Load API Key
+BASE_DIR = Path(__file__).parent
+load_dotenv(BASE_DIR / ".env")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+class SemanticIndexer:
+    def __init__(self, repo_path, output_file):
+        self.repo_path = Path(repo_path).resolve()
+        self.output_file = Path(output_file)
+        self.cache_file = self.repo_path / ".gemini_semantics.json"
+        self.semantics = self._load_cache()
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+
+    def _load_cache(self):
+        if self.cache_file.exists():
+            try:
+                return json.loads(self.cache_file.read_text())
+            except:
+                return {}
+        return {}
+
+    def _save_cache(self):
+        self.cache_file.write_text(json.dumps(self.semantics, indent=2))
+
+    def get_summary(self, file_path):
+        rel_path = str(file_path.relative_to(self.repo_path))
+        if rel_path in self.semantics:
+            return self.semantics[rel_path]
+
+        print(f"🧠 Analyzing intent: {rel_path}...")
+        try:
+            content = file_path.read_text()[:4000] # First 4k tokens for context
+            prompt = f"Summarize the technical purpose of this file in exactly 15 words or fewer. Focus on business logic intent. File: {rel_path}
+
+Content:
+{content}"
+            response = self.model.generate_content(prompt)
+            summary = response.text.strip()
+            self.semantics[rel_path] = summary
+            return summary
+        except Exception as e:
+            return f"Error analyzing: {str(e)}"
+
+    def run(self):
+        # Identify core files to analyze (L4 focus)
+        target_files = []
+        # Django
+        target_files.extend(list(self.repo_path.rglob("models.py")))
+        target_files.extend(list(self.repo_path.rglob("views.py")))
+        # Go
+        target_files.extend(list(self.repo_path.rglob("backend/controllers/*.go")))
+        # Vue
+        target_files.extend(list(self.repo_path.rglob("frontend/src/views/*.vue")))
+
+        results = {}
+        for f in target_files:
+            if "venv" in str(f) or "node_modules" in str(f): continue
+            results[str(f.relative_to(self.repo_path))] = self.get_summary(f)
+
+        self._save_cache()
+        
+        # Format for blueprint
+        md = ["# L4 SEMANTIC MAP
+"]
+        for path, summary in results.items():
+            md.append(f"- **{path}**: {summary}")
+        
+        with open(self.output_file, "w") as f:
+            f.write("
+".join(md))
+        print(f"✅ L4 Semantic Map saved to {self.output_file}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path")
+    parser.add_argument("output")
+    args = parser.parse_args()
+    SemanticIndexer(args.path, args.output).run()
