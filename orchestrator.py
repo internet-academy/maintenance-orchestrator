@@ -302,20 +302,40 @@ class Orchestrator:
             # Fallback to sheet's google translation if client is missing
             return "Bug Report", fallback_translation if fallback_translation else text
 
-        prompt = f"""
-        You are a translation assistant for a software development team.
-        Translate the following Japanese bug report/task description into professional English.
-        The translation should be full-text and include ALL details from the original.
-        
-        Also, provide a very concise (3-7 words) English summary for a ticket title.
-        
-        Output format:
-        TITLE: <Concise Title>
-        TRANSLATION: <Full English Translation>
-        
-        TEXT TO TRANSLATE:
-        {text}
-        """
+        if fallback_translation:
+            prompt = f"""
+            You are a translation assistant for a software development team.
+            
+            We already have a rough English translation for a Japanese bug report.
+            Please polish this English translation to be professional and clear, ensuring it captures all nuances from the original Japanese text.
+            
+            Also, provide a very concise (3-7 words) English summary for a ticket title.
+            
+            Output format:
+            TITLE: <Concise Title>
+            TRANSLATION: <Polished Full English Translation>
+            
+            ORIGINAL JAPANESE:
+            {text}
+            
+            ROUGH TRANSLATION:
+            {fallback_translation}
+            """
+        else:
+            prompt = f"""
+            You are a translation assistant for a software development team.
+            Translate the following Japanese bug report/task description into professional English.
+            The translation should be full-text and include ALL details from the original.
+            
+            Also, provide a very concise (3-7 words) English summary for a ticket title.
+            
+            Output format:
+            TITLE: <Concise Title>
+            TRANSLATION: <Full English Translation>
+            
+            TEXT TO TRANSLATE:
+            {text}
+            """
         
         import time
         max_retries = 3
