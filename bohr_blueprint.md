@@ -13,6 +13,28 @@
 - **reservation.go**: `[ReservationRoutes]`
 - **od.go**: `[ODRoutes]`
 
+### 🌐 API CONSUMPTION (L3 - Vue/TS)
+- **BenefitApplication.vue** -> imports: `[@/api/benefit]`
+- **BenefitApplicationStatus.vue** -> imports: `[@/api/benefit]`
+- **BenefitMyPage.vue** -> imports: `[@/api/benefit]`
+- **BenefitOtherApplication.vue** -> imports: `[@/api/benefit]`
+- **CertificationExamHistory.vue** -> imports: `[@/api/certificationExam]`
+- **CertificationExamRegistration.vue** -> imports: `[@/api/certificationExam]`
+- **DataSubmissionPage.vue** -> imports: `[@/api/data]`
+- **EnvironmentTools.vue** -> imports: `[../api/od]`
+- **FAQPage.vue** -> imports: `[@/api/help]`
+- **ITTest.vue** -> imports: `[../api/itTest, ../api/skillTest]`
+- **ITTestResult.vue** -> imports: `[@/api/skillTest, @/api/itTest]`
+- **JobSearch.vue** -> imports: `[@/api/job]`
+- **LearningSpaceReservations.vue** -> imports: `[@/api/reservation]`
+- **LiveReservationPage.vue** -> imports: `[@/api/reservation]`
+- **NotificationPanel.vue** -> imports: `[@/api/notification]`
+- **ODTable.vue** -> imports: `[../api/od]`
+- **ODVideoPage.vue** -> imports: `[@/api/od]`
+- **ProfileEdit.vue** -> imports: `[@/api/user]`
+- **ProfilePage.vue** -> imports: `[../api/user]`
+- **ReservationEvaluationPopup.vue** -> imports: `[@/api/reservation]`
+
 ## 📂 DIRECTORY STRUCTURE (L2)
 ```
 ├── GEMINI.md
