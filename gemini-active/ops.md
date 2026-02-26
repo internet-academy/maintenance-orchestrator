@@ -22,3 +22,4 @@ Pragmatic, efficient, and focused on stability.
 
 
 ## LESSONS LEARNED (ANTI-PATTERNS)
+- **[Env Variable Safety]**: For critical safety flags (like `DRY_RUN`), do NOT rely solely on function argument defaults. ALWAYS check for a corresponding environment variable in the constructor to prevent accidental live mutations when running scripts from the shell. Use `load_dotenv()` early in the entry point to ensure local `.env` files are respected in all execution contexts.
