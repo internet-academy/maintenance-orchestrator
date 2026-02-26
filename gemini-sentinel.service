@@ -1,0 +1,14 @@
+[Unit]
+Description=Sentinel Watcher: Automatic Repository Blueprint Sync
+After=network.target
+
+[Service]
+ExecStart=/home/min/projects/personal-agents/venv/bin/python /home/min/projects/personal-agents/run_live_sync.py
+WorkingDirectory=/home/min/projects/personal-agents
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/min/projects/personal-agents/logs/sentinel.log
+StandardError=append:/home/min/projects/personal-agents/logs/sentinel.log
+
+[Install]
+WantedBy=default.target
