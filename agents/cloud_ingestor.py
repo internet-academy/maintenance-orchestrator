@@ -192,18 +192,13 @@ class CloudIngestor:
                     if translation_capture_active:
                         task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
                     elif content_capture_active:
-                        # Heuristic to detect transition from JA to EN if no label is present
-                        # If more than 80% of characters are ASCII and the line is substantial
-                        ascii_count = len([c for c in val if ord(c) < 128])
-                        is_likely_english = (ascii_count / len(val) > 0.8) if len(val) > 10 else False
-                        
-                        if is_likely_english:
-                            # Once we hit English, switch mode so subsequent lines are also treated as English
-                            content_capture_active = False
-                            translation_capture_active = True
-                            task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
+                        # PER USER: The cell right below Japanese is ALWAYS English translation.
+                        if not task["content"]:
+                            task["content"] = val
                         else:
-                            task["content"] = (task["content"] + "\n" + val).strip()
+                            # This is the second row of content, which is the English translation
+                            task["english_translation_fallback"] = val
+                            content_capture_active = False # Stop capture after format is met
 
         # Final Fallback for Backlog ID (Check Column J of first row)
         if not task["backlog_id"] and len(first_row) > 9:
