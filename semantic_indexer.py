@@ -19,7 +19,7 @@ class SemanticIndexer:
         self.output_file = Path(output_file)
         self.cache_file = self.repo_path / ".gemini_semantics.json"
         self.semantics = self._load_cache()
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-pro-latest')
 
     def _load_cache(self):
         if self.cache_file.exists():
