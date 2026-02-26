@@ -36,45 +36,34 @@ class SemanticIndexer:
 
         print(f"🧠 Analyzing intent: {rel_path}...")
         try:
-            content = file_path.read_text()[:4000] # First 4k tokens for context
-            prompt = f"Summarize the technical purpose of this file in exactly 15 words or fewer. Focus on business logic intent. File: {rel_path}
-
-Content:
-{content}"
+            content = file_path.read_text(errors='ignore')[:4000]
+            prompt = f"File: {rel_path}\nSummarize the business logic intent of this file in 15 words or fewer.\n\nContent:\n{content}"
             response = self.model.generate_content(prompt)
-            summary = response.text.strip()
+            summary = response.text.strip().replace("\n", " ")
             self.semantics[rel_path] = summary
             return summary
         except Exception as e:
-            return f"Error analyzing: {str(e)}"
+            return f"Error: {str(e)}"
 
     def run(self):
-        # Identify core files to analyze (L4 focus)
         target_files = []
-        # Django
+        # DJANGO
         target_files.extend(list(self.repo_path.rglob("models.py")))
         target_files.extend(list(self.repo_path.rglob("views.py")))
-        # Go
+        # GO
         target_files.extend(list(self.repo_path.rglob("backend/controllers/*.go")))
-        # Vue
+        # VUE
         target_files.extend(list(self.repo_path.rglob("frontend/src/views/*.vue")))
 
-        results = {}
+        md = ["# L4 SEMANTIC MAP\n"]
         for f in target_files:
             if "venv" in str(f) or "node_modules" in str(f): continue
-            results[str(f.relative_to(self.repo_path))] = self.get_summary(f)
+            rel = str(f.relative_to(self.repo_path))
+            summary = self.get_summary(f)
+            md.append(f"- **{rel}**: {summary}")
 
         self._save_cache()
-        
-        # Format for blueprint
-        md = ["# L4 SEMANTIC MAP
-"]
-        for path, summary in results.items():
-            md.append(f"- **{path}**: {summary}")
-        
-        with open(self.output_file, "w") as f:
-            f.write("
-".join(md))
+        self.output_file.write_text("\n".join(md))
         print(f"✅ L4 Semantic Map saved to {self.output_file}")
 
 if __name__ == "__main__":

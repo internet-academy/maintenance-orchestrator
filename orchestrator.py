@@ -224,8 +224,8 @@ class Orchestrator:
             return
 
         repos = [
-            "young-min-choo/bohr-individual",
-            "young-min-choo/member"
+            "internet-academy/bohr-individual",
+            "internet-academy/member"
         ]
         
         print("\n--- Starting Git-to-Backlog Sync ---")
