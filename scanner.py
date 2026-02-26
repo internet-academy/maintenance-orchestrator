@@ -30,7 +30,6 @@ class RepoScanner:
                 if item in self.blacklist_names or item.startswith(".") or item_path.suffix in self.blacklist_extensions:
                     continue
                 
-                # Only add to structure if within max_depth
                 if indent <= max_depth:
                     prefix = "  " * indent + "├── "
                     if item_path.is_dir():
@@ -38,11 +37,9 @@ class RepoScanner:
                     else:
                         self.blueprint["structure"].append(f"{prefix}{item}")
 
-                # ALWAYS recurse for L3 extraction (regardless of tree depth)
                 if item_path.is_dir():
                     self.scan(item_path, indent + 1, max_depth)
                 else:
-                    # L3: Cross-Stack API Call Detection (Vue/JS)
                     if item_path.suffix in {".vue", ".ts", ".js"}:
                         self._extract_api_calls(item_path)
         except PermissionError:
@@ -51,11 +48,14 @@ class RepoScanner:
     def _extract_api_calls(self, file_path):
         try:
             content = file_path.read_text()
-            # Match strings like "/api/..." or "/support/..." used in axios/fetch
-            urls = re.findall(r"['\"](/api/[^\s'\"]+)['\"]", content)
-            if urls:
-                # print(f"DEBUG: Found {len(urls)} API calls in {file_path.name}")
-                self.blueprint["api_calls"].append({file_path.name: list(set(urls))})
+            urls = re.findall(r"(?:apiRequest|get|post|put|delete|patch)\s*\(?\s*['\"](/[\w/_-]+)['\"]", content)
+            imports = re.findall(r"import\s+{[^}]+}\s+from\s+['\"](@/api/[^'\"]+|../api/[^'\"]+)['\"]", content)
+            
+            if urls or imports:
+                res = {}
+                if urls: res["urls"] = list(set(urls))
+                if imports: res["imports"] = list(set(imports))
+                self.blueprint["api_calls"].append({file_path.name: res})
         except Exception:
             pass
 
@@ -83,7 +83,6 @@ class RepoScanner:
                             fields = []
                             for subnode in ast.walk(node):
                                 if isinstance(subnode, ast.Assign) and isinstance(subnode.value, ast.Call):
-                                    # Detect Django fields
                                     func_name = ""
                                     if hasattr(subnode.value.func, 'attr'):
                                         func_name = subnode.value.func.attr
@@ -91,12 +90,10 @@ class RepoScanner:
                                         func_name = subnode.value.func.id
                                         
                                     if func_name in ['ForeignKey', 'OneToOneField', 'ManyToManyField']:
-                                        # L3: Extract relationship target
                                         if subnode.value.args and isinstance(subnode.value.args[0], (ast.Constant, ast.Str)):
                                             target = subnode.value.args[0].s if hasattr(subnode.value.args[0], 's') else subnode.value.args[0].value
                                             self.blueprint["relationships"].append(f"{app}.{model_name} -> {target}")
                                     
-                                    # L2: Standard field extraction
                                     if isinstance(subnode.targets[0], ast.Name):
                                         fields.append(subnode.targets[0].id)
                             
@@ -106,11 +103,9 @@ class RepoScanner:
                     pass
 
     def _parse_go(self):
-        # Scan backend/routes for Go route names
         routes_dir = self.repo_path / "backend" / "routes"
         if not routes_dir.exists():
             routes_dir = self.repo_path / "routes"
-
         if routes_dir.exists():
             for f in routes_dir.glob("*.go"):
                 content = f.read_text()
@@ -127,7 +122,6 @@ class RepoScanner:
             md.append("\n### 🏗 DATA MODELS (Django L2)")
             for model_path, fields in self.blueprint["models"].items():
                 md.append(f"- **{model_path}**: `[{', '.join(fields)}]`")
-            
             if self.blueprint["relationships"]:
                 md.append("\n### 🔗 MODEL RELATIONSHIPS (L3)")
                 for rel in sorted(list(set(self.blueprint["relationships"])))[:15]:
@@ -141,11 +135,14 @@ class RepoScanner:
 
         if self.blueprint["api_calls"]:
             md.append("\n### 🌐 API CONSUMPTION (L3 - Vue/TS)")
-            # Dedup and sort
+            # Sort by filename
             sorted_calls = sorted(self.blueprint["api_calls"], key=lambda x: list(x.keys())[0])
             for call_map in sorted_calls[:20]:
-                for file_name, urls in call_map.items():
-                    md.append(f"- **{file_name}** -> `{', '.join(urls)}`")
+                for file_name, data in call_map.items():
+                    info = []
+                    if "urls" in data: info.append(f"urls: `[{', '.join(data['urls'])}]`")
+                    if "imports" in data: info.append(f"imports: `[{', '.join(data['imports'])}]`")
+                    md.append(f"- **{file_name}** -> {' | '.join(info)}")
 
         md.append("\n## 📂 DIRECTORY STRUCTURE (L2)")
         md.append("```")
