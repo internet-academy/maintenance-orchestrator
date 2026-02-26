@@ -1,6 +1,9 @@
 import os
 import json
 import argparse
+import re
+import ast
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -16,7 +19,7 @@ class SemanticIndexer:
         self.output_file = Path(output_file)
         self.cache_file = self.repo_path / ".gemini_semantics.json"
         self.semantics = self._load_cache()
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def _load_cache(self):
         if self.cache_file.exists():
@@ -31,10 +34,13 @@ class SemanticIndexer:
 
     def get_summary(self, file_path):
         rel_path = str(file_path.relative_to(self.repo_path))
-        if rel_path in self.semantics:
+        # Skip if already cached and not an error string
+        if rel_path in self.semantics and not self.semantics[rel_path].startswith("Error:"):
             return self.semantics[rel_path]
 
         print(f"🧠 Analyzing intent: {rel_path}...")
+        time.sleep(2) # Quota protection
+        
         try:
             content = file_path.read_text(errors='ignore')[:4000]
             prompt = f"File: {rel_path}\nSummarize the business logic intent of this file in 15 words or fewer.\n\nContent:\n{content}"
@@ -43,6 +49,10 @@ class SemanticIndexer:
             self.semantics[rel_path] = summary
             return summary
         except Exception as e:
+            if "429" in str(e):
+                print("⏳ Rate limit hit. Waiting 30s...")
+                time.sleep(30)
+                return self.get_summary(file_path) # Recursive retry
             return f"Error: {str(e)}"
 
     def run(self):
@@ -61,8 +71,8 @@ class SemanticIndexer:
             rel = str(f.relative_to(self.repo_path))
             summary = self.get_summary(f)
             md.append(f"- **{rel}**: {summary}")
+            self._save_cache() # Save progressively
 
-        self._save_cache()
         self.output_file.write_text("\n".join(md))
         print(f"✅ L4 Semantic Map saved to {self.output_file}")
 
