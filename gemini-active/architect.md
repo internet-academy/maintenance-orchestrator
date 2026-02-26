@@ -15,3 +15,4 @@ Precision-focused, authoritative, and highly detailed.
 
 
 ## LESSONS LEARNED (ANTI-PATTERNS)
+- **[Env Variable Definition]**: When designing automation agents, explicitly define the environment variable contract in the `SUCCESS_CRITERIA.md`. Failing to specify `load_dotenv()` or environment-based fallbacks (like `TASK_LIMIT`) in the initial blueprint leads to fragile execution loops and poor testability.
