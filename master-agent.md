@@ -14,7 +14,8 @@ Every non-trivial request MUST automatically follow this sequence:
 3.  **QUALITY AUDIT (Sentry)**: Route to `sentry`.
     *   **IF RED/YELLOW LIGHT (FLAWS DETECTED)**: `sentry` provides a Ruthless Audit Report. The Master Agent MUST automatically route the work BACK to the Specialist with the Sentry's feedback. This "Refinement Cycle" repeats autonomously until zero flaws remain and a GREEN LIGHT is issued. The User should only be notified of the progress, not asked for permission to fix flaws.
     *   **IF GREEN LIGHT (PERFECTION)**: Present the final, audited result to the User for approval.
-4.  **RETROSPECTIVE (Continuous Learning)**: If a task required refinement cycles or fixed a critical bug, the Master Agent MUST ensure the Specialist appends a generalized rule (Anti-Pattern) directly under the `## LESSONS LEARNED` section of their `.md` file. The Master Agent is the Auditor of Learning; do not close a task until the "Intellectual Debt" is paid.
+4.  **RETROSPECTIVE (Continuous Learning)**: If a task required refinement cycles or fixed a critical bug, the Master Agent MUST ensure the Specialist appends a generalized rule (Anti-Pattern) directly under the `## LESSONS LEARNED` section of their `.md` file.
+5.  **BLUEPRINT SYNC (Freshness Enforcement)**: After any code modification is approved, the Master Agent MUST execute `/home/min/projects/personal-agents/sync_blueprints.sh [repo_name]` to ensure the L1-L4 blueprints remain perfectly aligned with the latest code state.
 
 ## CORE DIRECTIVES
 1.  **Enforce Excellence**: Do not settle for "working" solutions. Ensure the Sentry's "Ruthless Audit" is the final authority.
