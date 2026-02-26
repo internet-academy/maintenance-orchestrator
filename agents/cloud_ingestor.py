@@ -131,58 +131,71 @@ class CloudIngestor:
         for i, row in enumerate(block_rows):
             abs_row_idx = start_index + i
             
-            # --- LABEL-BASED CONTENT SEARCH ---
-            for col_idx, cell_raw in enumerate(row):
-                cell_clean = str(cell_raw).strip()
+            # --- LABEL-BASED METADATA SEARCH (Restricted to Columns 8+) ---
+            for col_idx in range(8, len(row)):
+                cell_clean = str(row[col_idx]).strip()
                 
-                # Identify PIC, Status, Est Hours, Backlog ID (Columns 8+)
-                if col_idx >= 8:
-                    if cell_clean == "PIC" and col_idx + 1 < len(row):
-                        task["pic"] = row[col_idx + 1].strip()
-                        task["anchors"]["pic"] = (abs_row_idx, col_idx)
+                if cell_clean == "PIC" and col_idx + 1 < len(row):
+                    # Check the next few cells as PIC/Hours often shift
+                    for offset in [1, 2, 3, 4]:
+                        if col_idx + offset < len(row) and row[col_idx + offset].strip():
+                            task["pic"] = row[col_idx + offset].strip()
+                            task["anchors"]["pic"] = (abs_row_idx, col_idx)
+                            break
+                
+                if cell_clean == "Status" and col_idx + 1 < len(row):
+                    task["current_sheet_status"] = row[col_idx + 1].strip()
+                    task["anchors"]["status"] = (abs_row_idx, col_idx)
+                
+                if "Estimated Hours" in cell_clean and col_idx + 1 < len(row):
+                    for offset in [1, 2, 3, 4]:
+                        if col_idx + offset < len(row) and row[col_idx + offset].strip():
+                            try:
+                                val = row[col_idx + offset].strip()
+                                task["estimated_hours"] = float(val) if val else 1.0
+                                task["anchors"]["est_hours"] = (abs_row_idx, col_idx)
+                                break
+                            except (ValueError, TypeError):
+                                continue
                     
-                    if cell_clean == "Status" and col_idx + 1 < len(row):
-                        task["current_sheet_status"] = row[col_idx + 1].strip()
-                        task["anchors"]["status"] = (abs_row_idx, col_idx)
-                    
-                    if "Estimated Hours" in cell_clean and col_idx + 1 < len(row):
-                        try:
-                            val = row[col_idx + 1].strip()
-                            task["estimated_hours"] = float(val) if val else 1.0
-                        except (ValueError, TypeError):
-                            task["estimated_hours"] = 1.0
-                        task["anchors"]["est_hours"] = (abs_row_idx, col_idx)
-                    
-                    if ("Backlog ID" in cell_clean or "Ticket" in cell_clean) and col_idx + 1 < len(row):
-                        raw_id = row[col_idx + 1].strip()
-                        if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
-                            task["backlog_id"] = raw_id
+                if ("Backlog ID" in cell_clean or "Ticket" in cell_clean or "MD_SD-" in cell_clean) and col_idx + 1 < len(row):
+                    # If the cell itself contains the ID, use it, otherwise check the next cell
+                    raw_id = cell_clean if "MD_SD-" in cell_clean else row[col_idx + 1].strip()
+                    if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
+                        task["backlog_id"] = raw_id
                         task["anchors"]["backlog_id"] = (abs_row_idx, col_idx)
 
-                # Identify Content and Translation (Columns 0-7)
-                if (cell_clean == "Content" or cell_clean == "内容") and col_idx + 1 < len(row):
+            # --- CONTENT SEARCH (Columns 0-7) ---
+            for col_idx in range(0, min(8, len(row))):
+                cell_clean = str(row[col_idx]).strip()
+                if "内容" in cell_clean or "報告/相談" in cell_clean:
                     content_capture_active = True
                     translation_capture_active = False
                     task["anchors"]["content"] = (abs_row_idx, col_idx)
-                    continue # Start capturing from the NEXT row/cell logic
-                
+                    continue
+
                 if ("Translation" in cell_clean or "翻訳" in cell_clean) and col_idx + 1 < len(row):
                     translation_capture_active = True
                     content_capture_active = False
                     task["anchors"]["translation"] = (abs_row_idx, col_idx)
                     continue
 
-            # --- MULTI-ROW VALUE AGGREGATION ---
-            # Content usually sits in Column 3 (D) after the 'Content' label appears
-            if content_capture_active and len(row) > 3:
+            # --- VALUE AGGREGATION ---
+            # In this sheet, values are consistently in Column 3 (D)
+            if (content_capture_active or translation_capture_active) and len(row) > 3:
                 val = row[3].strip()
-                if val and val not in ["Content", "内容"]:
-                    task["content"] = (task["content"] + "\n" + val).strip()
-            
-            if translation_capture_active and len(row) > 3:
-                val = row[3].strip()
-                if val and "Translation" not in val and "翻訳" not in val:
-                    task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
+                # If we hit another label or an empty row with a known label in Col 1, stop capture
+                if len(row) > 1 and row[1].strip() in ["プロダクト", "希望締切", "エラー/仕様変更", "依頼者名/報告日"]:
+                    content_capture_active = False
+                    translation_capture_active = False
+                elif val and not any(x in val for x in ["内容", "報告/相談", "翻訳"]):
+                    if content_capture_active:
+                        # Heuristic: If it contains many English chars, it might be the start of translation
+                        # But the sheet usually has them in order: JA, then EN
+                        # For now, let's just append everything to content until we find the Translation label
+                        task["content"] = (task["content"] + "\n" + val).strip()
+                    elif translation_capture_active:
+                        task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
 
         # Final Fallback for Backlog ID (Check Column J of first row)
         if not task["backlog_id"] and len(first_row) > 9:
