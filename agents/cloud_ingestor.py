@@ -189,13 +189,21 @@ class CloudIngestor:
                     content_capture_active = False
                     translation_capture_active = False
                 elif val and not any(x in val for x in ["内容", "報告/相談", "翻訳"]):
-                    if content_capture_active:
-                        # Heuristic: If it contains many English chars, it might be the start of translation
-                        # But the sheet usually has them in order: JA, then EN
-                        # For now, let's just append everything to content until we find the Translation label
-                        task["content"] = (task["content"] + "\n" + val).strip()
-                    elif translation_capture_active:
+                    if translation_capture_active:
                         task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
+                    elif content_capture_active:
+                        # Heuristic to detect transition from JA to EN if no label is present
+                        # If more than 80% of characters are ASCII and the line is substantial
+                        ascii_count = len([c for c in val if ord(c) < 128])
+                        is_likely_english = (ascii_count / len(val) > 0.8) if len(val) > 10 else False
+                        
+                        if is_likely_english:
+                            # Once we hit English, switch mode so subsequent lines are also treated as English
+                            content_capture_active = False
+                            translation_capture_active = True
+                            task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
+                        else:
+                            task["content"] = (task["content"] + "\n" + val).strip()
 
         # Final Fallback for Backlog ID (Check Column J of first row)
         if not task["backlog_id"] and len(first_row) > 9:
