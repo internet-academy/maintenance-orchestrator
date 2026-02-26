@@ -113,7 +113,8 @@ class Orchestrator:
 
     def _get_task_hash(self, task):
         """Generates a hash of the raw task content to detect changes."""
-        content = f"{task['content']}|{task['estimated_hours']}"
+        # Include fallback translation in hash to detect split/polish changes
+        content = f"{task['content']}|{task.get('english_translation_fallback', '')}|{task['estimated_hours']}"
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
     def _get_or_create_parent_task(self, target_date_str):
