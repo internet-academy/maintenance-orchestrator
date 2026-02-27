@@ -16,6 +16,8 @@ if [ -f "manage.py" ]; then
     STACK="Django"
 elif [ -f "backend/go.mod" ] || [ -f "go.mod" ]; then
     STACK="Bohr-Fullstack"
+elif [ -f "requirements.txt" ]; then
+    STACK="General-Python"
 else
     echo -e "${RED}❌ Error: Unknown stack. No manage.py or go.mod found.${NC}"
     exit 1
@@ -33,6 +35,26 @@ case $STACK in
         
         $PYTHON_EXEC manage.py test --noinput
         EXIT_CODE=$?
+        ;;
+
+    "General-Python")
+        echo "🧪 Running Python Syntax & Unit Checks..."
+        PYTHON_EXEC="python3"
+        [ -f "venv/bin/python" ] && PYTHON_EXEC="venv/bin/python"
+        
+        # 1. Syntax check ALL changed/new files (or just everything)
+        $PYTHON_EXEC -m py_compile *.py agents/*.py 
+        SYNTAX_EXIT=$?
+
+        # 2. Run specific unit tests if they exist
+        [ -f "test_stateful_parsing.py" ] && $PYTHON_EXEC test_stateful_parsing.py
+        TEST_EXIT=$?
+
+        if [ $SYNTAX_EXIT -eq 0 ] && [ $TEST_EXIT -eq 0 ]; then
+            EXIT_CODE=0
+        else
+            EXIT_CODE=1
+        fi
         ;;
 
     "Bohr-Fullstack")
