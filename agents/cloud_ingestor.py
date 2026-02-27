@@ -67,10 +67,16 @@ class CloudIngestor:
         row, col = anchor_map['backlog_id']
         worksheet = self.get_current_month_worksheet()
         
-        # VERIFICATION: Anchor is at (row+1, col+1). Value is at (row+1, col+2).
-        label_cell = worksheet.cell(row + 1, col + 1).value
-        if "Backlog ID" in label_cell or "Ticket" in label_cell:
-            worksheet.update_cell(row + 1, col + 2, issue_key)
+        # VERIFICATION: If anchor is at Column J (9), we allow writing even if label is missing
+        # because it's our designated ID column. Otherwise, we verify the label.
+        label_cell = str(worksheet.cell(row + 1, col + 1).value or "").strip()
+        is_valid_label = "Backlog ID" in label_cell or "Ticket" in label_cell or col == 9
+        
+        if is_valid_label:
+            # If col == 9, we write directly to the cell (it's the value cell, not the label cell)
+            # In other cases, we write to col + 2 (the value cell next to the label)
+            target_col = col + 1 if col == 9 else col + 2
+            worksheet.update_cell(row + 1, target_col, issue_key)
         else:
             print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'Backlog ID', found '{label_cell}'. Write ABORTED.")
 
