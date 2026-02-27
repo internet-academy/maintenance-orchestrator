@@ -745,6 +745,10 @@
     ├── print.css
     ├── print2.css
     ├── redmond/
+  ├── django_ckeditor_5/
+    ├── app.js
+    ├── dist/
+    ├── src/
   ├── font/
     ├── -F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75vY0rw-oME.ttf
     ├── NotoSansJP-Regular.ttf
@@ -824,9 +828,4 @@
     ├── __init__.py
   ├── models.py
   ├── views.py
-### 🌌 L4 SEMANTIC INTENT MAP (Core Hubs)
-- **users/**: Centralized Identity Management. Handles Profiles, secondary emails, and session persistence.
-- **chat/**: Real-time Communication Engine. Manages Rooms, Participants, and message history.
-- **bohr_api/**: Primary Frontend Bridge. Acts as the API gateway for the Bohr-Individual Vue frontend.
-- **kikuichimonji/apps/**: The "Enterprise Core." Contains dozens of specialized modules for school management, reservations, and analytics.
-- **bohr_corp/**: Corporate Trainee Logic. Handles IP-restricted access and corporate-specific training workflows.
+```
