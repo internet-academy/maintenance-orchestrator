@@ -15,11 +15,11 @@ sync_repo() {
     local output=$3
     
     echo "🏗  Refreshing $name (L1-L3)..."
-    $VENV_PY "$BASE_DIR/scanner.py" "$path" --output "$BASE_DIR/$output"
+    $VENV_PY "$BASE_DIR/scanner.py" "$path" --exclude static media --output "$BASE_DIR/$output"
     
     echo "🧠 Refreshing $name Semantics (L4)..."
     # Note: Semantic indexer uses caching, so it only scans NEW/CHANGED files.
-    $VENV_PY "$BASE_DIR/semantic_indexer.py" "$path" "$BASE_DIR/${name}_semantics.md"
+    $VENV_PY "$BASE_DIR/semantic_indexer.py" "$path" --exclude static media "$BASE_DIR/${name}_semantics.md"
     
     # Merge L4 into main blueprint
     sed -i '/### 🌌 L4 SEMANTIC/,$d' "$BASE_DIR/$output"
