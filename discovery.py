@@ -31,8 +31,7 @@ def discover_backlog_ids():
         print(f"Could not fetch projects: {e}")
 
     # 2. Discover Users (Developers)
-    print("
-[USERS / DEVELOPERS]")
+    print("\n[USERS / DEVELOPERS]")
     try:
         user_resp = requests.get(f"{base_url}/users", params={"apiKey": api_key})
         user_resp.raise_for_status()
