@@ -21,8 +21,7 @@ def discover_backlog_ids():
     print(f"--- Discovery for Space: {space_id} ---")
 
     # 1. Discover Projects
-    print("
-[PROJECTS]")
+    print("\n[PROJECTS]")
     try:
         proj_resp = requests.get(f"{base_url}/projects", params={"apiKey": api_key})
         proj_resp.raise_for_status()
