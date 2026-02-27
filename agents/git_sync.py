@@ -9,6 +9,10 @@ class GitSync:
         self.load_balancer = LoadBalancer(backlog_api_key, backlog_space_id)
         self.dry_run = dry_run
         
+        # State tracking for Git activity
+        self.state_file = "git_sync_state.json"
+        self.state = self._load_state()
+        
         # Backlog Status IDs for MD_SD Project (528169)
         self.STATUS_OPEN = 1
         self.STATUS_IN_PROGRESS = 2
@@ -17,9 +21,22 @@ class GitSync:
         self.STATUS_PENDING_REPORT = 333305
         self.PROJECT_ID = 528169
 
+    def _load_state(self):
+        if os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    def _save_state(self):
+        with open(self.state_file, 'w') as f:
+            json.dump(self.state, f, indent=2)
+
     def scan_and_sync(self, repo_name):
         """
-        Scans recent Pull Requests in a repository and updates Backlog.
+        Scans recent activity in a repository and updates Backlog.
         """
         print(f"GIT: Scanning repository {repo_name}...")
         try:
@@ -28,25 +45,51 @@ class GitSync:
             print(f"GIT ERROR: Could not access repo {repo_name}: {e}")
             return
         
+        repo_state = self.state.get(repo_name, {"last_pr_id": 0, "processed_commits": []})
+        last_pr_id = repo_state.get("last_pr_id", 0)
+        
         # 1. Handle Open PRs -> Pending Release
         open_prs = repo.get_pulls(state='open', sort='created', direction='desc')
         for pr in open_prs:
-            # Check PR title and branch name for issue keys
-            search_text = f"{pr.title} {pr.head.ref}"
+            # Gather all searchable text from PR and its commits
+            search_text = f"{pr.title} {pr.head.ref} {pr.body or ''}"
+            
+            # Scan commits for closing keywords or IDs
+            try:
+                for commit in pr.get_commits():
+                    search_text += f" {commit.commit.message}"
+            except:
+                pass # Skip if commits aren't accessible
+                
             issue_keys = self._extract_issue_keys(search_text)
             
             for key in issue_keys:
                 self._update_backlog_status(key, self.STATUS_PENDING_RELEASE, f"PR Open: {pr.html_url}")
+            
+            if pr.number > last_pr_id:
+                last_pr_id = pr.number
 
         # 2. Handle Merged PRs -> Pending Report
         closed_prs = repo.get_pulls(state='closed', sort='updated', direction='desc')[:15]
         for pr in closed_prs:
             if pr.merged:
-                search_text = f"{pr.title} {pr.head.ref}"
+                search_text = f"{pr.title} {pr.head.ref} {pr.body or ''}"
+                
+                # Scan commits for this PR too
+                try:
+                    for commit in pr.get_commits():
+                        search_text += f" {commit.commit.message}"
+                except:
+                    pass
+                    
                 issue_keys = self._extract_issue_keys(search_text)
                 
                 for key in issue_keys:
                     self._update_backlog_status(key, self.STATUS_PENDING_REPORT, f"PR Merged: {pr.html_url}")
+        
+        # Update state
+        self.state[repo_name] = {"last_pr_id": last_pr_id}
+        self._save_state()
 
     def _extract_issue_keys(self, text):
         """Extracts Backlog issue keys like MD_SD-123 from text."""
