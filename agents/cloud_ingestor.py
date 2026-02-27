@@ -184,21 +184,40 @@ class CloudIngestor:
             # In this sheet, values are consistently in Column 3 (D)
             if (content_capture_active or translation_capture_active) and len(row) > 3:
                 val = row[3].strip()
-                # If we hit another label or an empty row with a known label in Col 1, stop capture
-                if len(row) > 1 and row[1].strip() in ["プロダクト", "希望締切", "エラー/仕様変更", "依頼者名/報告日"]:
+                
+                # Boundary Check: If we hit another label or an empty row with a known label in Col 1, stop capture
+                # In the Error Report sheet, Col 1 (B) often contains labels like "プロダクト"
+                potential_label = row[1].strip() if len(row) > 1 else ""
+                is_boundary = potential_label in ["プロダクト", "希望締切", "エラー/仕様変更", "依頼者名/報告日"]
+                
+                if is_boundary:
                     content_capture_active = False
                     translation_capture_active = False
                 elif val and not any(x in val for x in ["内容", "報告/相談", "翻訳"]):
                     if translation_capture_active:
-                        task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip()
+                        # Append to English Translation block
+                        current_en = task["english_translation_fallback"]
+                        task["english_translation_fallback"] = (current_en + "\n" + val).strip() if current_en else val
                     elif content_capture_active:
-                        # PER USER: The cell right below Japanese is ALWAYS English translation.
-                        if not task["content"]:
+                        # Heuristic: If we already have content and the new line is clearly English (ASCII), 
+                        # and we don't have a fallback yet, treat it as the English translation start.
+                        # Otherwise, keep appending to Japanese content.
+                        is_likely_english = all(ord(c) < 128 for c in val.replace("\n", "").replace(" ", ""))
+                        
+                        if task["content"] and is_likely_english and not task["english_translation_fallback"]:
+                            task["english_translation_fallback"] = val
+                        elif not task["content"]:
                             task["content"] = val
                         else:
-                            # This is the second row of content, which is the English translation
-                            task["english_translation_fallback"] = val
-                            content_capture_active = False # Stop capture after format is met
+                            # If it's not clearly English or we already have English, keep adding to Japanese or English accordingly
+                            if task["english_translation_fallback"]:
+                                task["english_translation_fallback"] += "\n" + val
+                            else:
+                                task["content"] += "\n" + val
+
+        # Final Cleanup: Strip all multi-line values to ensure stable hashing
+        task["content"] = task["content"].strip()
+        task["english_translation_fallback"] = task["english_translation_fallback"].strip()
 
         # Final Fallback for Backlog ID (Check Column J of first row)
         if not task["backlog_id"] and len(first_row) > 9:
