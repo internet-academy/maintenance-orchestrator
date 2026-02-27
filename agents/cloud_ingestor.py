@@ -224,10 +224,14 @@ class CloudIngestor:
         task["english_translation_fallback"] = task["english_translation_fallback"].strip()
 
         # Final Fallback for Backlog ID (Check Column J of first row)
-        if not task["backlog_id"] and len(first_row) > 9:
+        if len(first_row) > 9:
             raw_id = first_row[9].strip()
             if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
                 task["backlog_id"] = raw_id
+            
+            # ALWAYS set an anchor for Backlog ID if not already found via label.
+            # This allows new tickets to be written back to Column J.
+            if "backlog_id" not in task["anchors"]:
                 task["anchors"]["backlog_id"] = (start_index, 9)
 
         if task["content"] == "":
