@@ -439,7 +439,7 @@ class Orchestrator:
         backlog_id = task.get('backlog_id')
         latest_backlog_issue = None
         
-        # Calculate current content hash
+        # Calculate current content hash for change detection
         current_hash = self._get_task_hash(task)
         
         if backlog_id:
@@ -447,13 +447,11 @@ class Orchestrator:
             is_rightful_owner = self._verify_ownership(backlog_id, task)
             
             if is_rightful_owner:
-                print(f"UPDATE: Found verified Backlog ID {backlog_id}. Checking for changes...")
-                
-                # Fetch full issue to get latest status (Reverse Sync)
+                # Fetch full issue to get latest status and metadata (Reverse Sync)
                 try:
                     latest_backlog_issue = self.load_balancer.get_issue(backlog_id)
                     
-                    # --- REVERSE STATUS SYNC ---
+                    # --- REVERSE STATUS SYNC (Backlog -> Sheet) ---
                     backlog_status = latest_backlog_issue.get('status', {}).get('name')
                     sheet_status = task.get('current_sheet_status', '')
                     
@@ -478,46 +476,92 @@ class Orchestrator:
                     print(f"SKIP: No content changes detected for {backlog_id}.")
                     return
 
-                # If we reach here, content has changed.
-                # Update local state so next run skips if still unchanged
-                self.state[backlog_id] = current_hash
-
+                # If we reach here, content or metadata (hours) has changed.
+                print(f"UPDATE: Changes detected for {backlog_id}. Regenerating content...")
+                
                 # Generate Bilingual content, summary, and localized name
                 full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
-                task['description'] = full_desc
-                task['title_summary'] = ai_summary
-                task['summary'] = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
+                
+                # Prepare update payload
+                update_payload = {
+                    'description': full_desc,
+                    'summary': f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})",
+                    'estimated_hours': task['estimated_hours']
+                }
 
-                # CALCULATE TIMELINE FOR UPDATES
-                best_dev = self._find_best_dev(task['estimated_hours'])
-                if best_dev:
-                    due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
-                    task['deadline'] = due_date
-                    print(f"DEBUG: Calculated projected finish for verified update: {due_date}")
-                    
-                    # LINK TO PARENT based on deadline
-                    target_parent_id = self._get_or_create_parent_task(due_date)
-                    current_parent_id = latest_backlog_issue.get('parentIssueId')
-                    
-                    if target_parent_id != current_parent_id:
-                        task['parent_id'] = target_parent_id
-                        print(f"HIERARCHY: Updating parent link to {target_parent_id}")
+                # CRITICAL: Only recalculate deadline if estimated_hours changed 
+                # OR if the existing ticket has no deadline.
+                # Do NOT fill the timeline here, as existing active tasks were already 
+                # counted in __init__.
+                old_hours = latest_backlog_issue.get('estimatedHours')
+                old_due = latest_backlog_issue.get('dueDate')
+                
+                if float(task['estimated_hours']) != float(old_hours or 0) or not old_due:
+                    print(f"RE-SCHEDULING: Hours changed ({old_hours} -> {task['estimated_hours']}) or missing deadline.")
+                    best_dev = self._find_best_dev(task['estimated_hours'])
+                    if best_dev:
+                        # We use peek_fill here because the ticket's original hours ARE in the 
+                        # current timeline buckets already (fetched from get_active_workload).
+                        # Using fill_hours would double-count the same task.
+                        new_due = self.timelines[best_dev['id']].peek_fill(task['estimated_hours'])
+                        update_payload['deadline'] = new_due
+                        update_payload['parent_id'] = self._get_or_create_parent_task(new_due)
+                
+                # Perform the update
+                if self.dry_run:
+                    print(f"[DRY RUN] Would update verified Backlog {backlog_id} with: {update_payload}")
+                else:
+                    try:
+                        self.load_balancer.update_backlog_issue(backlog_id, update_payload)
+                        print(f"SUCCESS: Updated Backlog {backlog_id}")
+                        self.state[backlog_id] = current_hash
+                    except Exception as e:
+                        print(f"ERROR: Failed to update {backlog_id}: {str(e)}")
+                return
             else:
                 print(f"ACTION: ID {backlog_id} appears to be a copy. Resetting to CREATE mode for this row.")
                 backlog_id = None # Force creation of a fresh ticket
+
+        # 2. Skip if already assigned in sheet (New Task Only)
+        if task.get('pic'):
+            print(f"SKIP: Task {task['id']} already has PIC: {task['pic']}")
+            return
+
+        # 3. New Task Assignment Logic
+        # Generate Bilingual content, summary, and localized name
+        full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+        task['description'] = full_desc
+        task['title_summary'] = ai_summary
+        task['summary'] = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
+
+        best_dev = self._find_best_dev(task['estimated_hours'])
         
-        if backlog_id: # This only executes if verified above
+        if best_dev:
+            # The completion date is the calculated deadline
+            due_date = self.timelines[best_dev['id']].fill_hours(task['estimated_hours'])
+            task['deadline'] = due_date
+            
+            # LINK TO PARENT based on deadline
+            task['parent_id'] = self._get_or_create_parent_task(due_date)
+            
+            print(f"ASSIGNING: Task {task['id']} (Req: {romaji_name}) ({task['estimated_hours']}h) -> {best_dev['name']}")
+            print(f"TITLE PREVIEW: {task['summary']}")
+            print(f"HIERARCHY: Linking to Parent ID {task['parent_id']}")
+            
             if self.dry_run:
-                print(f"[DRY RUN] Would update verified Backlog {backlog_id} under Parent {task.get('parent_id')}")
+                print(f"[DRY RUN] Would create Backlog Issue for {best_dev['name']} with deep-link and parent.")
                 return
             try:
-                self.load_balancer.update_backlog_issue(backlog_id, task)
-                print(f"SUCCESS: Updated Backlog {backlog_id}")
+                issue = self.load_balancer.create_backlog_issue(best_dev['id'], task)
+                issue_key = issue['issueKey']
+                print(f"CREATED: Backlog Issue {issue_key}")
+                self.ingestor.write_backlog_id(task['anchors'], issue_key)
                 # Update local state
-                self.state[backlog_id] = current_hash
+                self.state[issue_key] = current_hash
             except Exception as e:
-                print(f"ERROR: Failed to update {backlog_id}: {str(e)}")
-            return
+                print(f"ERROR: Failed to create issue: {str(e)}")
+        else:
+            print(f"OVERLOAD: No capacity for Task {task['id']} even in 14-day window.")
 
         # 2. Skip if already assigned in sheet (New Task Only)
         if task.get('pic'):
