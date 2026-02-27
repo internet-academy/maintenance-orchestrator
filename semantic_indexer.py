@@ -19,7 +19,7 @@ class SemanticIndexer:
         self.output_file = Path(output_file)
         self.cache_file = self.repo_path / ".gemini_semantics.json"
         self.semantics = self._load_cache()
-        self.model = genai.GenerativeModel('gemini-pro-latest')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def _load_cache(self):
         if self.cache_file.exists():
@@ -39,7 +39,7 @@ class SemanticIndexer:
             return self.semantics[rel_path]
 
         print(f"🧠 Analyzing intent: {rel_path}...")
-        time.sleep(2) # Quota protection
+        time.sleep(5) # Quota protection
         
         try:
             content = file_path.read_text(errors='ignore')[:4000]
