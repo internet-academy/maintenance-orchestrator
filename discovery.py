@@ -41,8 +41,7 @@ def discover_backlog_ids():
         print(f"Could not fetch users: {e}")
 
     # 3. Discover Issue Types (To find 'Bug' or 'Task' ID)
-    print("
-[ISSUE TYPES (Run this after finding your Project ID)]")
+    print("\n[ISSUE TYPES (Run this after finding your Project ID)]")
     print("Set PROJECT_ID_OR_KEY env var to see issue types for a specific project.")
     proj_id = os.getenv('PROJECT_ID_OR_KEY')
     if proj_id:
