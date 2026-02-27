@@ -1,4 +1,4 @@
-# REPO BLUEPRINT: bohr-individual
+# REPO BLUEPRINT: blueprint_sync_bohr
 
 ## 🏗 DATA MODELS (144 discovered)
 - **Go.AdvancedVocationalBenefitApplication**: `[ID, DocumentApplyID, DocumentApply, AAttendanceFlag, BCreditsFlag, CCertificationOfEnrollmentFlag, AAttendanceFormat, BCreditsFormat]`
@@ -323,9 +323,4 @@
   ├── lint-go.sh
   ├── setup-dev.sh
   ├── test-runner.sh
-### 🌌 L4 SEMANTIC INTENT MAP (Full-Stack Flow)
-- **backend/controllers/**: Business Logic Handlers. Processes Go/Fiber routes for auth, support, and reservations.
-- **frontend/src/views/**: UI Entry Points. Orchestrates user interactions and calls specialized API services.
-- **frontend/src/api/**: Service Layer. Modular definitions of backend endpoints used throughout the frontend.
-- **backend/services/**: Integration Layer. Handles external dependencies like Django file clients and Email dispatch.
-- **BenefitApplication (Flow)**: Unified workflow for students to apply for educational benefits and certificates.
+```
