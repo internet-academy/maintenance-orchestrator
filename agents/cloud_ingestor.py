@@ -138,10 +138,14 @@ class CloudIngestor:
                 if cell_clean == "PIC" and col_idx + 1 < len(row):
                     # Check the next few cells as PIC/Hours often shift
                     for offset in [1, 2, 3, 4]:
-                        if col_idx + offset < len(row) and row[col_idx + offset].strip():
-                            task["pic"] = row[col_idx + offset].strip()
-                            task["anchors"]["pic"] = (abs_row_idx, col_idx)
-                            break
+                        if col_idx + offset < len(row):
+                            val = row[col_idx + offset].strip()
+                            # PIC Validation: Skip if value is empty, a known label, or numeric
+                            is_label = val in ["Estimated Hours", "Status", "Ticket", "Backlog ID", "ID"]
+                            if val and not is_label and not val.replace(".", "").isdigit():
+                                task["pic"] = val
+                                task["anchors"]["pic"] = (abs_row_idx, col_idx)
+                                break
                 
                 if cell_clean == "Status" and col_idx + 1 < len(row):
                     task["current_sheet_status"] = row[col_idx + 1].strip()
