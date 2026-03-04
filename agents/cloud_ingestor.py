@@ -260,21 +260,8 @@ class CloudIngestor:
                         current_en = task["english_translation_fallback"]
                         task["english_translation_fallback"] = (current_en + "\n" + val).strip() if current_en else val
                     elif content_capture_active:
-                        # Heuristic: If we already have content and the new line is clearly English (ASCII), 
-                        # and we don't have a fallback yet, treat it as the English translation start.
-                        # Otherwise, keep appending to Japanese content.
-                        is_likely_english = all(ord(c) < 128 for c in val.replace("\n", "").replace(" ", ""))
-                        
-                        if task["content"] and is_likely_english and not task["english_translation_fallback"]:
-                            task["english_translation_fallback"] = val
-                        elif not task["content"]:
-                            task["content"] = val
-                        else:
-                            # If it's not clearly English or we already have English, keep adding to Japanese or English accordingly
-                            if task["english_translation_fallback"]:
-                                task["english_translation_fallback"] += "\n" + val
-                            else:
-                                task["content"] += "\n" + val
+                        # Capture all raw content into one field. We will let the LLM handle separation.
+                        task["content"] = (task["content"] + "\n" + val).strip() if task["content"] else val
 
         # Final Cleanup: Strip all multi-line values to ensure stable hashing
         task["content"] = task["content"].strip()

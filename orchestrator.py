@@ -230,22 +230,51 @@ class Orchestrator:
         romaji_name = self.name_mapping.get(task['requester'], task['requester'])
         row = task['row_index'] + 1
         sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit?gid={GID}#gid={GID}&range=B{row}:C{row}"
-        description = f"ID: {task['id']}\nSheet Link: {sheet_link}\n\n## English Translation\n\n{en_translation}\n\n## 原文 (Japanese)\n\n{task['content']}"
+        
+        # Build a cleaner, professional description
+        description = f"ID: {task['id']}\nSheet Link: {sheet_link}\n\n"
+        description += f"## 📝 Description (English)\n\n{en_translation}\n\n"
+        description += f"## 📄 Source Content (Original)\n\n{task['content']}"
+        if task.get('english_translation_fallback'):
+            description += f"\n\n## 📝 Sheet Translation (Original)\n\n{task['english_translation_fallback']}"
+            
         return description, title_summary, romaji_name
 
     def _translate_and_summarize(self, text, fallback_translation=""):
         if not self.client: return "Bug Report", fallback_translation if fallback_translation else text
-        prompt = f"Translate the following Japanese bug report to professional English. Output format: TITLE: <Concise Title> TRANSLATION: <Full English Translation> TEXT: {text}"
-        if fallback_translation: prompt += f" ROUGH TRANSLATION: {fallback_translation}"
+        
+        prompt = f"""
+        You are a technical coordinator. Analyze the following bug report from a Google Sheet.
+        
+        TASKS:
+        1. If the input is in Japanese, translate it to professional English.
+        2. If the input is already in English, polish it for clarity and remove any "internal" noise.
+        3. Provide a very concise title (3-7 words) for a GitHub Issue.
+        
+        INPUT TEXT:
+        {text}
+        
+        {f"SHEET PROVIDED TRANSLATION (FOR REFERENCE): {fallback_translation}" if fallback_translation else ""}
+        
+        OUTPUT FORMAT (MANDATORY):
+        TITLE: <Your concise title>
+        TRANSLATION: <Your polished/translated English text>
+        """
+        
         try:
             response = self.client.models.generate_content(model=self.model_name, contents=prompt)
             result = response.text.strip()
             if "TITLE:" in result and "TRANSLATION:" in result:
-                title = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip()
+                title = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip().replace("**", "").replace("#", "")
                 trans = result.split("TRANSLATION:")[1].strip()
                 return title, trans
-        except: pass
-        return "Bug Report", fallback_translation if fallback_translation else text
+        except Exception as e:
+            print(f"LLM ERROR: {e}")
+            
+        # Fallback logic for title
+        lines = text.split('\n')
+        title = lines[0][:50] + "..." if len(lines[0]) > 50 else lines[0]
+        return title, text
 
     def _send_daily_report(self, all_tasks):
         today_str = datetime.now().strftime("%Y%m%d")
