@@ -278,14 +278,31 @@ class Orchestrator:
             print(f"OVERLOAD: No capacity for Task {task['id']}.")
 
     def _find_best_dev(self, hours):
-        options = []
+        """
+        Finds the dev who can finish earliest.
+        PRIORITY: Prioritize the team (Saurabh, Raman, Ewan).
+        CHOO: Only assign to Choo if the team is completely booked for 14 days.
+        """
+        team_options = []
+        choo_option = None
+
         for github_user, timeline in self.timelines.items():
             finish_date = timeline.peek_fill(hours)
             if finish_date:
                 name = [k for k, v in self.developer_map.items() if v == github_user][0]
-                options.append({"name": name, "id": github_user, "finish_date": finish_date})
-        if options: return sorted(options, key=lambda x: x['finish_date'])[0]
-        return None
+                option = {"name": name, "id": github_user, "finish_date": finish_date}
+                
+                if name == "Choo":
+                    choo_option = option
+                else:
+                    team_options.append(option)
+        
+        # 1. Try assigning to the team first (earliest finish date)
+        if team_options:
+            return sorted(team_options, key=lambda x: x['finish_date'])[0]
+        
+        # 2. If team is overloaded, return Choo's earliest date
+        return choo_option
 
     def _generate_bilingual_description(self, task):
         GID = "635134579"
