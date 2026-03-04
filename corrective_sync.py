@@ -44,9 +44,13 @@ def corrective_sync():
         start_date, end_date = orc.timelines[best_dev['id']].fill_hours_with_dates(task['estimated_hours'])
         
         # Find the Project Item ID
-        # (We could search by URL, but for speed we'll assume we need to find the node)
-        # Extract issue number
-        issue_num = issue_url.split('/')[-1]
+        # Extract issue number (e.g. from https://.../issues/2565)
+        import re
+        match = re.search(r'/issues/(\d+)', issue_url)
+        if not match:
+            print(f"  - ERROR: Could not parse issue number from {issue_url}")
+            continue
+        issue_num = int(match.group(1))
         
         # Use GraphQL to find the Item ID in the project
         query = """
