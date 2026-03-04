@@ -15,7 +15,7 @@
 - **kikuichimonji/apps/reservation/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/questionnaire/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/corporate/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/exam/models.py**: Error: 504 Deadline Exceeded
+- **kikuichimonji/apps/exam/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/payment/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/job_outsourcing/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/data_analysis/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
