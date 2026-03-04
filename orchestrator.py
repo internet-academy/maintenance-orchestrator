@@ -25,6 +25,11 @@ class Orchestrator:
             print("!!! RUNNING IN DRY RUN MODE - NO API MUTATIONS WILL OCCUR !!!")
         
         self.google_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+        # Compatibility check: if it's a file path, read it; otherwise, use as is
+        if self.google_json and os.path.exists(self.google_json):
+            with open(self.google_json, 'r') as f:
+                self.google_json = f.read()
+                
         self.sheet_id = os.getenv('GOOGLE_SHEET_ID')
         self.gemini_key = os.getenv('GEMINI_API_KEY')
         self.github_token = os.getenv('GITHUB_TOKEN')
