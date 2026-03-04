@@ -4,7 +4,8 @@ import hashlib
 from google import genai
 from dotenv import load_dotenv
 from agents.cloud_ingestor import CloudIngestor
-from agents.load_balancer import LoadBalancer, DeveloperTimeline
+from agents.github_specialist import GitHubSpecialist
+from agents.load_balancer import DeveloperTimeline
 from agents.git_sync import GitSync
 from datetime import datetime
 
@@ -25,8 +26,6 @@ class Orchestrator:
         
         self.google_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
         self.sheet_id = os.getenv('GOOGLE_SHEET_ID')
-        self.backlog_key = os.getenv('BACKLOG_API_KEY')
-        self.space_id = os.getenv('BACKLOG_SPACE_ID')
         self.gemini_key = os.getenv('GEMINI_API_KEY')
         self.github_token = os.getenv('GITHUB_TOKEN')
         
@@ -42,27 +41,30 @@ class Orchestrator:
             self.client = None
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
-        self.load_balancer = LoadBalancer(self.backlog_key, self.space_id)
+        
+        # Initialize GitHub Specialist
+        self.gh_specialist = GitHubSpecialist(self.github_token, dry_run=self.dry_run)
         
         # Initialize GitSync if token is available
         if self.github_token:
-            self.git_sync = GitSync(self.github_token, self.backlog_key, self.space_id, dry_run=self.dry_run)
+            # Note: GitSync will be refactored to handle direct Sheet updates later
+            self.git_sync = None
         else:
-            print("WARNING: GITHUB_TOKEN not found. Git-to-Backlog sync will be skipped.")
+            print("WARNING: GITHUB_TOKEN not found. Git activity sync will be skipped.")
             self.git_sync = None
         
         # Google Chat Webhook for Reporting
         self.chat_webhook = os.getenv('GOOGLE_CHAT_REPORT_WEBHOOK')
         
-        # Real Developer Mapping for i-academy space
+        # Developer Mapping to GitHub Usernames
         self.developer_map = {
-            "Saurabh": 984450,
-            "Raman": 1819362,
-            "Ewan": 1880127,
-            "Choo": 1052465
+            "Saurabh": os.getenv('GH_USER_SAURABH', 'saurabh-ia'),
+            "Raman": os.getenv('GH_USER_RAMAN', 'raman-ia'),
+            "Ewan": os.getenv('GH_USER_EWAN', 'ewan-ia'),
+            "Choo": os.getenv('GH_USER_CHOO', 'y-choo')
         }
         
-        # Google Chat IDs for @mentions (User needs to provide these)
+        # Google Chat IDs for @mentions
         self.chat_ids = {
             "Saurabh": os.getenv('CHAT_ID_SAURABH', 'Saurabh'),
             "Raman": os.getenv('CHAT_ID_RAMAN', 'Raman'),
@@ -82,20 +84,19 @@ class Orchestrator:
         }
         
         # Initialize Timelines for all developers
-        # Defaults to Today, but can be overridden via env var (e.g. for March start)
         self.start_date = os.getenv('SYNC_START_DATE') 
         
         self.timelines = {}
-        for name, dev_id in self.developer_map.items():
+        for name, github_user in self.developer_map.items():
             timeline = DeveloperTimeline(name, start_date=self.start_date)
-            # ALWAYS pre-fill with actual Backlog load to ensure real-time accuracy
+            # Pre-fill with actual GitHub workload from Maintenance Project
             try:
-                actual_load = self.load_balancer.get_active_workload(dev_id, project_id=528169)
+                actual_load = self.gh_specialist.get_active_workload(github_user)
                 timeline.fill_hours(actual_load)
             except Exception as e:
                 print(f"WARNING: Could not fetch initial load for {name}: {e}")
             
-            self.timelines[dev_id] = timeline
+            self.timelines[github_user] = timeline
 
     def _load_state(self):
         if os.path.exists(self.state_file):
