@@ -246,8 +246,7 @@ class CloudIngestor:
             if (content_capture_active or translation_capture_active) and len(row) > 3:
                 val = row[3].strip()
                 
-                # Boundary Check: If we hit another label or an empty row with a known label in Col 1, stop capture
-                # In the Error Report sheet, Col 1 (B) often contains labels like "プロダクト"
+                # Boundary Check
                 potential_label = row[1].strip() if len(row) > 1 else ""
                 is_boundary = potential_label in ["プロダクト", "希望締切", "エラー/仕様変更", "依頼者名/報告日"]
                 
@@ -256,12 +255,14 @@ class CloudIngestor:
                     translation_capture_active = False
                 elif val and not any(x in val for x in ["内容", "報告/相談", "翻訳"]):
                     if translation_capture_active:
-                        # Append to English Translation block
-                        current_en = task["english_translation_fallback"]
-                        task["english_translation_fallback"] = (current_en + "\n" + val).strip() if current_en else val
+                        task["english_translation_fallback"] = (task["english_translation_fallback"] + "\n" + val).strip() if task["english_translation_fallback"] else val
                     elif content_capture_active:
-                        # Capture all raw content into one field. We will let the LLM handle separation.
-                        task["content"] = (task["content"] + "\n" + val).strip() if task["content"] else val
+                        # If we find clear English content INSIDE the Japanese area, and don't have a fallback, treat it as a potential fallback
+                        is_likely_english = all(ord(c) < 128 for c in val.replace("\n", "").replace(" ", "").replace("/", "").replace(":", "").replace("-", ""))
+                        if is_likely_english and not task["english_translation_fallback"] and task["content"]:
+                             task["english_translation_fallback"] = val
+                        else:
+                             task["content"] = (task["content"] + "\n" + val).strip() if task["content"] else val
 
         # Final Cleanup: Strip all multi-line values to ensure stable hashing
         task["content"] = task["content"].strip()
