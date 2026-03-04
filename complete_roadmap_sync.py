@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from orchestrator import Orchestrator
+from agents.load_balancer import DeveloperTimeline
 
 load_dotenv()
 
@@ -17,7 +18,7 @@ def complete_roadmap_sync():
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     orc.timelines = {}
     for name, github_user in orc.developer_map.items():
-        orc.timelines[github_user] = orc.DeveloperTimeline(name, start_date=tomorrow)
+        orc.timelines[github_user] = DeveloperTimeline(name, start_date=tomorrow)
 
     # 1. Fetch Mapping for both projects
     def get_item_map(project_num):
