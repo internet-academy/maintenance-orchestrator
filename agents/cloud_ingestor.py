@@ -32,12 +32,26 @@ class CloudIngestor:
             raise
 
     def get_current_month_worksheet(self):
-        """Finds the tab matching the YYMM pattern (e.g., エラー報告_2602)."""
+        """Finds the tab matching the YYMM pattern (e.g., エラー報告_2602), favoring recent reports."""
         workbook = self.client.open_by_key(self.sheet_id)
+        
+        # 1. Try current month (YYMM)
         target_pattern = datetime.now().strftime("%y%m")
         for sheet in workbook.worksheets():
-            if target_pattern in sheet.title:
+            if target_pattern in sheet.title and "エラー報告" in sheet.title:
                 return sheet
+                
+        # 2. Try last month if current month doesn't exist yet
+        last_month = (datetime.now().replace(day=1) - timedelta(days=1)).strftime("%y%m")
+        for sheet in workbook.worksheets():
+            if last_month in sheet.title and "エラー報告" in sheet.title:
+                return sheet
+        
+        # 3. Fallback to any 'エラー報告' tab
+        for sheet in workbook.worksheets():
+            if "エラー報告" in sheet.title:
+                return sheet
+                
         return workbook.get_worksheet(0)
 
     def get_live_tasks(self):
