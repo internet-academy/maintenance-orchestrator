@@ -162,7 +162,7 @@ class Orchestrator:
         task_id = task.get('backlog_id')
         current_hash = self._get_task_hash(task)
         
-        if task_id and (task_id.startswith("http") or "#" in task_id)  
+        if task_id and (task_id.startswith("http") or "#" in task_id):
             if self.state.get(task_id) == current_hash: return
             self.state[task_id] = current_hash
             return
