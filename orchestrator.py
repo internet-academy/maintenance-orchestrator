@@ -162,7 +162,7 @@ class Orchestrator:
         task_id = task.get('backlog_id')
         current_hash = self._get_task_hash(task)
         
-        if task_id and (task_id.startswith("http") or "#" in task_id) and task["id"] != "1":
+        if task_id and (task_id.startswith("http") or "#" in task_id)  
             if self.state.get(task_id) == current_hash: return
             self.state[task_id] = current_hash
             return
@@ -177,19 +177,13 @@ class Orchestrator:
             priority = self._detect_priority(task['content'])
             summary = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
             
-            # Detailed Output for first task per developer in DRY RUN
-            if self.dry_run and best_dev['id'] not in self.detailed_audit_shown:
-                print(f"\nAUDIT: First task for {best_dev['name']} (@{best_dev['id']}):")
-                print(f"  - TITLE:       {summary}")
-                print(f"  - PRIORITY:    {priority}")
-                print(f"  - LEVEL:       Parent")
-                print(f"  - DATES:       {start_date} to {end_date}")
-                print(f"  - DESCRIPTION:\n{full_desc}\n")
-                self.detailed_audit_shown.add(best_dev['id'])
-            else:
-                print(f"ASSIGNING: Task {task['id']} -> {best_dev['name']} ({start_date} to {end_date}) [{priority}]")
-            
-            if self.dry_run: return
+            if self.dry_run:
+                print(f"\n[DRY RUN] NEW TASK CREATION FLOW for Task {task['id']}:")
+                print(f"  1. Parent Issue:  {summary} (@{best_dev['id']}) [Priority: {priority}]")
+                print(f"  2. Sub-Issue:     Understand the request: {ai_summary} (0.33h)")
+                print(f"  3. Project Setup: Status: To Triage, Level: Parent/Child, Dates: {start_date} to {end_date}")
+                print(f"  4. Sheet Update:  Status: Open, URL: [MOCK_URL], PIC: {best_dev['name']}")
+                return
 
             try:
                 # Phase 1: Create GitHub Issue (Parent)
