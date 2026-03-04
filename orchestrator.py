@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from agents.cloud_ingestor import CloudIngestor
 from agents.github_specialist import GitHubSpecialist
 from agents.load_balancer import DeveloperTimeline
+from agents.git_sync import GitSync
 from datetime import datetime
 
 # Load environment variables from .env
@@ -39,6 +40,11 @@ class Orchestrator:
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.gh_specialist = GitHubSpecialist(self.github_token, dry_run=self.dry_run)
+        
+        if self.github_token:
+            self.git_sync = GitSync(self.github_token, self.ingestor, dry_run=self.dry_run)
+        else:
+            self.git_sync = None
         
         self.chat_webhook = os.getenv('GOOGLE_CHAT_REPORT_WEBHOOK')
         
@@ -106,6 +112,11 @@ class Orchestrator:
         try:
             tasks = self.ingestor.get_live_tasks()
             print(f"Found {len(tasks)} valid tasks in Google Sheets.")
+            
+            # Sync GitHub status BACK to Sheet
+            if self.git_sync:
+                self.git_sync.scan_and_sync(tasks)
+
             for task in tasks:
                 self.process_task(task)
             
