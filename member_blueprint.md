@@ -1,6 +1,6 @@
 # REPO BLUEPRINT: blueprint_sync_member
 
-## 🏗 DATA MODELS (447 discovered)
+## 🏗 DATA MODELS (434 discovered)
 - **analytics.ConsiderationPhase**: `[name, short_name, sort, flag]`
 - **analytics.ContactAccounts**: `[corporation, name, kana, email, phone1, phone2, department, department_category]`
 - **analytics.CounselingSalesBar**: `[sales]`
@@ -329,37 +329,26 @@
 - **school.ClassType**: `[name, short_name, color, sort, flag, objects, active_objects]`
 - **school.ClassVersion**: `[class_instance, version, update_cost, change_note, changed_at]`
 - **school.CorporateCategory**: `[name, short_name, sort, flag]`
-- **school.Course**: `[name, short_name, benefit_category, skill_category, sales_start_date, sales_end_date, classes, point_num]`
+- **school.Course**: `[name, short_name, classes, point_num, tuition_pay_price, sort, flag, objects]`
 - **school.CurSheet**: `[staff, file, cur_sheet_class, cur_sheet_class_num, point, time, edit_time]`
-- **school.DocumentApply**: `[date, customer, apply_time, apply_type, requested_document, benefit_type, status, reserved_date]`
+- **school.DocumentApply**: `[date, customer, apply_time, apply_type, benefit_type, status, reserved_date, reserved_time]`
 - **school.ITgreeting**: `[date, type, ip, a1, a2, a3, result]`
-- **school.ImpressionBase**: `[customer, playlist, impress_point1, impress_point2, impress_point3, impress_note, created_at, edited_at]`
-- **school.ImpressionCatchup**: `[cls]`
 - **school.ImpressionOD**: `[customer, lesson, staff, playlist, video, impress_point1, impress_point2, impress_point3]`
-- **school.M2M**: `[customer, m2m_slot, custom_tel_num, m2m_type, m2m_class, m2m_class_num, os, request_staff]`
+- **school.M2M**: `[customer, custom_tel_num, m2m_type, m2m_class, m2m_class_num, os, request_staff, request_date]`
 - **school.M2MBranch**: `[name, sort, flag, objects, active_objects]`
 - **school.M2MCheckItems**: `[type, title, sort, flag, active_objects, objects]`
 - **school.M2MCheckTypes**: `[name, short_name, sort, flag, active_objects, objects]`
-- **school.M2MClassQuestions**: `[m2m, class_1, lesson_num_1, question_1, class_2, lesson_num_2, question_2, class_3]`
 - **school.M2MContact**: `[m2m, type, note, staff, time]`
 - **school.M2MContactType**: `[name, short_name, sort, flag, objects, active_objects]`
 - **school.M2MControl**: `[name, short_name, sort, flag, objects, active_objects]`
-- **school.M2MDesign**: `[name, short_name, flag, sort, objects, active_objects]`
-- **school.M2MDevelopment**: `[name, short_name, flag, sort, objects, active_objects]`
 - **school.M2MEmail**: `[customer, title, body, time, type, contact, is_seen, top_page]`
 - **school.M2MEmailTemplate**: `[name, type, subject, body]`
-- **school.M2MEnrollmentMethods**: `[name, short_name, sort, flag, objects, active_objects]`
 - **school.M2MFeedback**: `[m2m, assignment, message, instructor_note, created_at]`
-- **school.M2MInstructor**: `[instructor, website_production, website_design, website_development, website_proposal, course, os, meet_url]`
-- **school.M2MProposal**: `[name, short_name, flag, sort, objects, active_objects]`
 - **school.M2MSchedule**: `[date1, begin_hhii1, end_hhii1, date2, begin_hhii2, end_hhii2, date3, begin_hhii3]`
-- **school.M2MSlot**: `[instructor, date, time, objects]`
 - **school.M2MState**: `[name, short_name, sort, flag, objects, active_objects]`
 - **school.M2MSubCategory**: `[name, main_category, flag, objects, active_objects]`
 - **school.M2MTime**: `[num, begin_hhii, end_hhii, note]`
-- **school.M2MTools**: `[name, short_name, sort, flag, objects, active_objects]`
 - **school.M2MType**: `[name, short_name, sort, flag, objects, active_objects]`
-- **school.M2MWebsiteProduction**: `[name, short_name, flag, sort, objects, active_objects]`
 - **school.Material**: `[filename, file, material_type, staff, sort, flag, time]`
 - **school.MaterialType**: `[name, short_name, sort, flag]`
 - **school.NPSsurvey**: `[customer, referral_point, note, query, location, created_at, reject_flag]`
@@ -381,8 +370,6 @@
 - **school.ProcedureName**: `[name, short_name, point_num, sort, flag, objects, active_objects]`
 - **school.QualificationCondition**: `[name, short_name, sort, flag, active_objects, objects]`
 - **school.Reception**: `[customer, date, branch, class_staff, post_time, impress_point1, impress_note]`
-- **school.Roadmap**: `[course, class_field, self_study, other_course, original_site_production, month, small_test, big_test]`
-- **school.RoadmapTasks**: `[contract, customer, class_field, lesson_num, type, month, start_date, end_date]`
 - **school.RoleProgress**: `[customer, role, role_progress, completed_role_date]`
 - **school.RoutineFile**: `[date, routine_type, file, staff, objects, active_objects]`
 - **school.RoutineType**: `[name, short_name, sort, flag, objects, active_objects]`
@@ -505,7 +492,6 @@
 ├── bohr_api/
   ├── __init__.py
   ├── apps.py
-  ├── benefit_document_creation.py
   ├── email/
     ├── cancel_email.py
     ├── email_data.py
@@ -633,7 +619,6 @@
   ├── middleware.py
   ├── settings.py
   ├── settings_local.py
-  ├── settings_local.py:Zone.Identifier
   ├── templates/
     ├── 404_error.html
     ├── admin_base.html
@@ -702,9 +687,6 @@
   ├── prod.txt
   ├── staging.txt
 ├── scripts/
-  ├── add_catchup_playlist_type.py
-  ├── course_model_migrations.py
-  ├── documentation_reload.sh
   ├── macos_restore_db_backup.sh
   ├── make_db_backup.sh
   ├── member_merge_migrate.sh
@@ -721,50 +703,4 @@
     ├── __init__.py
   ├── models.py
   ├── views.py
-```# L4 SEMANTIC MAP
-
-- **users/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **chat/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr_api/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr_common/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/story/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/qasystem/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/library/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/maintenance/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/core/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/ia_admin/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/school/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/event/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/reservation/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/questionnaire/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/corporate/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/exam/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/payment/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/job_outsourcing/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/data_analysis/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/customer/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/knowledge_centre/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/instructor/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/contract/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/analytics/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/equipment/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/contact/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/stories/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/staff/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr/apps/contest/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr/apps/quiz/models.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **users/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **chat/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr_api/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **documentation_website/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **common/apps/digital_text/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/qasystem/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/price/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/questionnaire/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/knowledge_centre/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/analytics/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/core/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/ia_admin/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/reservation/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr/apps/bohr_core/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **bohr/apps/student/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
+```
