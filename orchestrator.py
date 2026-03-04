@@ -168,6 +168,26 @@ class Orchestrator:
         current_hash = self._get_task_hash(task)
         
         if task_id and (task_id.startswith("http") or "#" in task_id):
+            # --- AUTO-READY TRIGGER (Sub-issue check) ---
+            # If all sub-issues are closed, move parent to 'Ready'
+            try:
+                # Extract issue number
+                match = re.search(r'/issues/(\d+)', task_id)
+                if match:
+                    issue_num = int(match.group(1))
+                    gh_data = self.gh_specialist.get_project_item_data(issue_num, 4)
+                    if gh_data and gh_data.get('Status') == "To Triage":
+                        title = gh_data.get('Title')
+                        if self.gh_specialist.get_child_issues_status(title):
+                            print(f"AUTO-READY: All sub-issues closed for #{issue_num}. Moving to 'Ready'.")
+                            if not self.dry_run:
+                                # We need to add 'Ready' option ID to GitHubSpecialist later, 
+                                # using 'Backlog' as a fallback for now
+                                ready_opt = "f75ad846" # 'Backlog' in Project 4
+                                self.gh_specialist.update_field(4, gh_data['item_id'], 'status', ready_opt, is_option=True)
+            except Exception as e:
+                print(f"DEBUG: Ready trigger failed: {e}")
+
             if self.state.get(task_id) == current_hash: return
             self.state[task_id] = current_hash
             return
@@ -180,10 +200,18 @@ class Orchestrator:
         if best_dev:
             start_date, end_date = self.timelines[best_dev['id']].fill_hours_with_dates(task['estimated_hours'])
             priority = self._detect_priority(task['content'])
-            summary = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
+            
+            # --- CONSISTENT TITLE PREFIXING ---
+            summary = f"[MAINTENANCE] {ai_summary} ({romaji_name} - #{task['id']})"
+            
+            # --- INTELLIGENT REPO ROUTING ---
+            target_repo = "member"
+            content_lower = task['content'].lower()
+            if "bohr" in content_lower or "bohr-individual" in content_lower:
+                target_repo = "bohr-individual"
             
             if self.dry_run:
-                print(f"\n[DRY RUN] NEW TASK CREATION FLOW for Task {task['id']}:")
+                print(f"\n[DRY RUN] NEW TASK CREATION FLOW for Task {task['id']} in {target_repo}:")
                 print(f"  1. Parent Issue:  {summary} (@{best_dev['id']}) [Priority: {priority}]")
                 print(f"  2. Sub-Issue:     Understand the request: {ai_summary} (0.33h)")
                 print(f"  3. Project Setup: Status: To Triage, Level: Parent/Child, Dates: {start_date} to {end_date}")
@@ -191,9 +219,9 @@ class Orchestrator:
                 return
 
             try:
-                # Phase 1: Create GitHub Issue (Parent)
+                # Phase 1: Create GitHub Issue (Parent) in the TARGET REPO
                 issue = self.gh_specialist.create_issue(
-                    repo="member", title=summary, body=full_desc, assignee=best_dev['id'], labels=["staff-report"]
+                    repo=target_repo, title=summary, body=full_desc, assignee=best_dev['id'], labels=["staff-report"]
                 )
                 issue_url = issue['html_url']
                 parent_node_id = issue['node_id']

@@ -215,10 +215,40 @@ class GitHubSpecialist:
             if not is_done: load += hours
         return load
 
-    def get_issue_status(self, issue_url):
-        match = re.search(r'github\.com/([^/]+)/([^/]+)/issues/(\d+)', issue_url)
-        if not match: return "Unknown"
-        owner, repo, number = match.groups()
-        response = requests.get(f"https://api.github.com/repos/{owner}/{repo}/issues/{number}", headers=self.headers)
-        if response.status_code != 200: return "Unknown"
-        return "Closed" if response.json().get("state") == "closed" else "Open"
+    def get_child_issues_status(self, parent_title):
+        """Finds all child issues linked to this parent title and returns if all are closed."""
+        query = """
+        query($org: String!) {
+          organization(login: $org) {
+            projectV2(number: 4) {
+              items(first: 100) {
+                nodes {
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
+                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
+                    }
+                  }
+                  content {
+                    ... on Issue { state }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
+        items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+        
+        children_found = 0
+        children_closed = 0
+        
+        for item in items:
+            fields = {fv.get('field', {}).get('name'): (fv.get('text') or fv.get('name')) for fv in item.get('fieldValues', {}).get('nodes', [])}
+            if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
+                children_found += 1
+                if item.get('content', {}).get('state') == 'CLOSED':
+                    children_closed += 1
+        
+        return children_found > 0 and children_found == children_closed
