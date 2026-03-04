@@ -103,7 +103,7 @@ class GitHubSpecialist:
             v_val = str(value)
         elif "-" in str(value) and len(str(value)) == 10:
             v_key = "date"
-            v_type = "String" # Date is passed as String in V2 input
+            v_type = "Date" # Use Date type for the variable
             v_val = str(value)
         elif isinstance(value, (int, float)):
             v_key = "number"
