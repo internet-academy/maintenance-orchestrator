@@ -106,17 +106,22 @@ class GitHubSpecialist:
               items(first: 100) {
                 nodes {
                   fieldValues(first: 20) {
-                    nodes {
-                      ... on ProjectV2ItemFieldTextValue { 
-                        text 
-                        field { ... on ProjectV2Field { id name } } 
-                      }
-                      ... on ProjectV2ItemFieldSingleSelectValue { 
-                        name 
-                        field { ... on ProjectV2Field { id name } } 
-                      }
+                  nodes {
+                    ... on ProjectV2ItemFieldTextValue { 
+                      text 
+                      field { ... on ProjectV2Field { id name } } 
+                    }
+                    ... on ProjectV2ItemFieldNumberValue { 
+                      number 
+                      field { ... on ProjectV2Field { id name } } 
+                    }
+                    ... on ProjectV2ItemFieldSingleSelectValue { 
+                      name 
+                      field { ... on ProjectV2Field { id name } } 
                     }
                   }
+                  }
+
                   content {
                     ... on Issue {
                       assignees(first: 10) { nodes { login } }
@@ -157,10 +162,15 @@ class GitHubSpecialist:
                 field_data = fv.get("field", {})
                 field_id = field_data.get("id")
                 
-                # Check Hours
+                # Check Hours (Could be text or number depending on Project config)
                 if field_id == target_field_id:
                     try:
-                        hours = float(fv.get("text", "0.0"))
+                        # Try 'number' first, then fallback to 'text'
+                        val = fv.get("number")
+                        if val is not None:
+                            hours = float(val)
+                        else:
+                            hours = float(fv.get("text", "0.0"))
                     except (ValueError, TypeError):
                         hours = 0.0
                 
