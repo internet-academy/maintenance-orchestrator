@@ -105,8 +105,10 @@ class CloudIngestor:
         
         # VERIFICATION
         label_cell = worksheet.cell(row + 1, col + 1).value
+        import time
         if "Status" in label_cell:
             worksheet.update_cell(row + 1, col + 2, status_text)
+            time.sleep(1) # Delay to avoid 429
         else:
             print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'Status', found '{label_cell}'. Write ABORTED.")
 
@@ -121,8 +123,10 @@ class CloudIngestor:
         
         # Verification: Label should be "PIC"
         label_cell = str(worksheet.cell(row + 1, col + 1).value or "").strip()
+        import time
         if "PIC" in label_cell:
             worksheet.update_cell(row + 1, col + 2, pic_name)
+            time.sleep(1) # Delay to avoid 429
         else:
             print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'PIC', found '{label_cell}'. Write ABORTED.")
 
@@ -133,6 +137,7 @@ class CloudIngestor:
         near the Status/PIC area if missing, but for now we look for 'Start Date' labels.
         """
         worksheet = self.get_current_month_worksheet()
+        import time
         
         # Heuristic: Find 'Start Date' and 'End Date' labels in the same block
         # We search the block rows (roughly 15 rows)
@@ -144,8 +149,10 @@ class CloudIngestor:
             for c, val in enumerate(row_vals):
                 if "Start date" in str(val):
                     worksheet.update_cell(r + 1, c + 2, start_date)
+                    time.sleep(1)
                 if "End date" in str(val) or "Finish date" in str(val):
                     worksheet.update_cell(r + 1, c + 2, end_date)
+                    time.sleep(1)
 
     def _is_valid(self, task):
         # Reject tasks with no date, no requester, OR no content.
@@ -193,6 +200,9 @@ class CloudIngestor:
                 cell_clean = str(row[col_idx]).strip()
                 
                 if cell_clean == "PIC" and col_idx + 1 < len(row):
+                    # ALWAYS record the anchor when the label is found
+                    task["anchors"]["pic"] = (abs_row_idx, col_idx)
+                    
                     # Check the next few cells as PIC/Hours often shift
                     for offset in [1, 2, 3, 4]:
                         if col_idx + offset < len(row):
@@ -201,7 +211,6 @@ class CloudIngestor:
                             is_label = val in ["Estimated Hours", "Status", "Ticket", "Backlog ID", "ID"]
                             if val and not is_label and not val.replace(".", "").isdigit():
                                 task["pic"] = val
-                                task["anchors"]["pic"] = (abs_row_idx, col_idx)
                                 break
                 
                 if cell_clean == "Status" and col_idx + 1 < len(row):
