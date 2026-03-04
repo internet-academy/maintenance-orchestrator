@@ -3,7 +3,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class CloudIngestor:
     def __init__(self, service_account_json_str, sheet_id):
