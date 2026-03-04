@@ -197,14 +197,33 @@ class GitHubSpecialist:
         return None
 
     def get_active_workload(self, github_username):
-        """Fetches active issues for a user across ALL projects in the organization."""
-        query_projects = """
-        query($org: String!) { organization(login: $org) { projectsV2(first: 20) { nodes { number } } } }
         """
-        resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
-        project_nums = [p['number'] for p in resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])]
+        Fetches active issues for a user across ALL projects in the organization
+        and sums their 'Assigned Hours', de-duplicating by Issue/PR ID.
+        """
+        # 1. Fetch all project numbers for the organization
+        query_projects = """
+        query($org: String!) {
+          organization(login: $org) {
+            projectsV2(first: 20) {
+              nodes { number title }
+            }
+          }
+        }
+        """
+        try:
+            resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
+            proj_json = resp_projects.json()
+            project_nodes = proj_json.get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])
+            if not project_nodes:
+                return 0.0
+            project_nums = [p['number'] for p in project_nodes if p.get('number')]
+        except Exception as e:
+            print(f"DEBUG: Failed to fetch projects: {e}")
+            return 0.0
 
-        unique_tasks = {} 
+        unique_tasks = {} # content_id -> hours
+        
         for p_num in project_nums:
             query_items = """
             query($org: String!, $number: Int!) {
@@ -229,24 +248,38 @@ class GitHubSpecialist:
               }
             }
             """
-            resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num}})
-            items = resp_items.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-            
-            for item in items:
-                content = item.get("content")
-                if not content or content.get("closed") is True: continue
-                assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", [])]
-                if github_username.lower() not in assignees: continue
+            try:
+                resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num}})
+                items_json = resp_items.json()
+                items = items_json.get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+                if not items: continue
                 
-                hours = 0.0
-                is_done = False
-                for fv in item.get("fieldValues", {}).get("nodes", []):
-                    field_name = fv.get("field", {}).get("name")
-                    if "Hours" in field_name: hours = float(fv.get("number") or fv.get("text") or 0.0)
-                    if field_name == "Status" and fv.get("name") == "Done": is_done = True
-                
-                if not is_done:
-                    unique_tasks[content['id']] = max(unique_tasks.get(content['id'], 0.0), hours)
+                for item in items:
+                    content = item.get("content")
+                    if not content or content.get("closed") is True: continue
+                    
+                    assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", []) if a.get("login")]
+                    if github_username.lower() not in assignees: continue
+                    
+                    # Extract Hours
+                    hours = 0.0
+                    is_done = False
+                    for fv in item.get("fieldValues", {}).get("nodes", []):
+                        field_data = fv.get("field", {})
+                        if not field_data: continue
+                        field_name = field_data.get("name")
+                        if field_name and "Hours" in field_name:
+                            hours = float(fv.get("number") or fv.get("text") or 0.0)
+                        if field_name == "Status" and fv.get("name") == "Done":
+                            is_done = True
+                    
+                    if not is_done:
+                        content_id = content['id']
+                        unique_tasks[content_id] = max(unique_tasks.get(content_id, 0.0), hours)
+            except Exception as e:
+                print(f"DEBUG: Failed to fetch items for project {p_num}: {e}")
+                continue
+
         return sum(unique_tasks.values())
 
     def get_child_issues_status(self, parent_title):
