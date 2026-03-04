@@ -242,16 +242,19 @@ class Orchestrator:
         is_fallback = en_translation.strip() == task['content'].strip()
         
         if is_fallback:
-            # Detect if we have a Sheet Translation available
             sheet_translation = task.get('english_translation_fallback', '').strip()
+            # If sheet translation is just a URL, treat it as a reference
+            is_url_only = sheet_translation.startswith("http") and "\n" not in sheet_translation
             
-            if sheet_translation:
+            if sheet_translation and not is_url_only:
                 description += f"## 📝 Description (Sheet Translation)\n\n{sheet_translation}\n\n"
                 description += f"## 📄 Source Content (Original)\n\n{task['content']}"
             else:
                 is_likely_jp = any(ord(c) > 128 for c in task['content'][:100])
                 header = "## 📄 Source Content (Japanese)" if is_likely_jp else "## 📝 Source Content (English)"
                 description += f"{header}\n\n{task['content']}"
+                if sheet_translation:
+                     description += f"\n\n## 🔗 Reference Link\n\n{sheet_translation}"
                 if is_likely_jp:
                     description += "\n\n> ⚠️ *Note: Automatic translation unavailable due to API limit.*"
         else:
