@@ -1,6 +1,7 @@
 import os
 import json
 import hashlib
+import re
 from google import genai
 from dotenv import load_dotenv
 from agents.cloud_ingestor import CloudIngestor
@@ -50,10 +51,10 @@ class Orchestrator:
         
         # Developer Mapping to GitHub Usernames
         self.developer_map = {
-            "Saurabh": os.getenv('GH_USER_SAURABH', 'saurabh-ia'),
-            "Raman": os.getenv('GH_USER_RAMAN', 'raman-ia'),
-            "Ewan": os.getenv('GH_USER_EWAN', 'ewan-ia'),
-            "Choo": os.getenv('GH_USER_CHOO', 'y-choo')
+            "Saurabh": os.getenv('GH_USER_SAURABH', 'Saurabh-IA'),
+            "Raman": os.getenv('GH_USER_RAMAN', 'RmnSoni'),
+            "Ewan": os.getenv('GH_USER_EWAN', 'Froggyyyyyyy'),
+            "Choo": os.getenv('GH_USER_CHOO', 'young-min-choo')
         }
         
         self.chat_ids = {
@@ -79,6 +80,9 @@ class Orchestrator:
                 print(f"WARNING: Could not fetch initial load for {name}: {e}")
             self.timelines[github_user] = timeline
 
+        # Tracking for detailed audit output
+        self.detailed_audit_shown = set()
+
     def _load_state(self):
         if os.path.exists(self.state_file):
             try:
@@ -92,6 +96,24 @@ class Orchestrator:
     def _get_task_hash(self, task):
         content = f"{task['content']}|{task['estimated_hours']}"
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    def _detect_priority(self, content):
+        """
+        Detects priority based on keywords.
+        urgent / 至急 (not "not urgent" / "至急ではない") -> P0
+        not urgent / 至急ではない -> P2
+        default -> P1
+        """
+        content_lower = content.lower()
+        
+        is_not_urgent = "not urgent" in content_lower or "至急ではない" in content or "至急ではない" in content_lower
+        is_urgent = "urgent" in content_lower or "至急" in content or "至急" in content_lower
+        
+        if is_not_urgent:
+            return "P2"
+        if is_urgent:
+            return "P0"
+        return "P1"
 
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
@@ -113,7 +135,6 @@ class Orchestrator:
             tasks = self.ingestor.get_live_tasks()
             print(f"Found {len(tasks)} valid tasks in Google Sheets.")
             
-            # Sync GitHub status BACK to Sheet
             if self.git_sync:
                 self.git_sync.scan_and_sync(tasks)
 
@@ -148,8 +169,20 @@ class Orchestrator:
         
         if best_dev:
             start_date, end_date = self.timelines[best_dev['id']].fill_hours_with_dates(task['estimated_hours'])
+            priority = self._detect_priority(task['content'])
             summary = f"[ERROR] {ai_summary} ({romaji_name} - #{task['id']})"
-            print(f"ASSIGNING: Task {task['id']} -> {best_dev['name']} ({start_date} to {end_date})")
+            
+            # Detailed Output for first task per developer in DRY RUN
+            if self.dry_run and best_dev['id'] not in self.detailed_audit_shown:
+                print(f"\nAUDIT: First task for {best_dev['name']} (@{best_dev['id']}):")
+                print(f"  - TITLE:       {summary}")
+                print(f"  - PRIORITY:    {priority}")
+                print(f"  - LEVEL:       Parent")
+                print(f"  - DATES:       {start_date} to {end_date}")
+                print(f"  - DESCRIPTION:\n{full_desc}\n")
+                self.detailed_audit_shown.add(best_dev['id'])
+            else:
+                print(f"ASSIGNING: Task {task['id']} -> {best_dev['name']} ({start_date} to {end_date}) [{priority}]")
             
             if self.dry_run: return
 
@@ -160,10 +193,15 @@ class Orchestrator:
                 issue_url = issue['html_url']
                 item_id = self.gh_specialist.add_to_project(issue['node_id'])
                 
+                # Update Project Fields
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['status'], self.gh_specialist.status_options['In progress'], is_option=True)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['start_date'], start_date)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['end_date'], end_date)
+                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['priority'], self.gh_specialist.priority_options[priority], is_option=True)
+                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['level'], self.gh_specialist.level_options['Parent'], is_option=True)
+                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['hours'], task['estimated_hours'])
                 
+                # Write back to Sheet
                 self.ingestor.write_backlog_id(task['anchors'], issue_url)
                 self.ingestor.write_status(task['anchors'], "In Progress")
                 if hasattr(self.ingestor, 'write_pic'): self.ingestor.write_pic(task['anchors'], best_dev['name'])
