@@ -173,52 +173,76 @@ class GitHubSpecialist:
         return None
 
     def get_active_workload(self, github_username):
-        """Fetches active issues for a user in Project 4 and sums their 'Assigned Hours'."""
-        project_id = self.projects[4]["id"]
-        query = """
-        query($org: String!, $number: Int!) {
+        """
+        Fetches active issues for a user across ALL projects in the organization
+        and sums their 'Assigned Hours', de-duplicating by Issue/PR ID.
+        """
+        # 1. Fetch all project numbers for the organization
+        query_projects = """
+        query($org: String!) {
           organization(login: $org) {
-            projectV2(number: $number) {
-              items(first: 100) {
-                nodes {
-                  fieldValues(first: 20) {
-                    nodes {
-                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { id name } } }
-                      ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { id name } } }
-                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { id name } } }
-                    }
-                  }
-                  content {
-                    ... on Issue { assignees(first: 10) { nodes { login } } closed }
-                    ... on DraftIssue { assignees(first: 10) { nodes { login } } }
-                  }
-                }
-              }
+            projectsV2(first: 20) {
+              nodes { number title }
             }
           }
         }
         """
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": 4}})
-        data = response.json()
-        items = data.get("data", {}).get("organization", {}).get("projectV2", {}).get("items", {}).get("nodes", [])
+        resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
+        project_nums = [p['number'] for p in resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])]
+
+        unique_tasks = {} # content_id -> hours
         
-        load = 0.0
-        target_field_id = self.projects[4]["fields"]["hours"]
-        for item in items:
-            content = item.get("content", {})
-            if not content or content.get("closed") is True: continue
-            assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", [])]
-            if github_username.lower() not in assignees: continue
+        for p_num in project_nums:
+            query_items = """
+            query($org: String!, $number: Int!) {
+              organization(login: $org) {
+                projectV2(number: $number) {
+                  items(first: 100) {
+                    nodes {
+                      fieldValues(first: 20) {
+                        nodes {
+                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
+                        }
+                      }
+                      content {
+                        ... on Issue { id assignees(first: 10) { nodes { login } } closed }
+                        ... on PullRequest { id assignees(first: 10) { nodes { login } } closed }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """
+            resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num}})
+            items = resp_items.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
             
-            hours = 0.0
-            is_done = False
-            for fv in item.get("fieldValues", {}).get("nodes", []):
-                field_data = fv.get("field", {})
-                if field_data.get("id") == target_field_id or field_data.get("name") == "Assigned Hours":
-                    hours = float(fv.get("number") or fv.get("text") or 0.0)
-                if field_data.get("name") == "Status" and fv.get("name") == "Done": is_done = True
-            if not is_done: load += hours
-        return load
+            for item in items:
+                content = item.get("content")
+                if not content or content.get("closed") is True: continue
+                
+                assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", [])]
+                if github_username.lower() not in assignees: continue
+                
+                # Extract Hours
+                hours = 0.0
+                is_done = False
+                for fv in item.get("fieldValues", {}).get("nodes", []):
+                    field_name = fv.get("field", {}).get("name")
+                    if "Hours" in field_name:
+                        hours = float(fv.get("number") or fv.get("text") or 0.0)
+                    if field_name == "Status" and fv.get("name") == "Done":
+                        is_done = True
+                
+                if not is_done:
+                    content_id = content['id']
+                    # Keep the maximum hours found for this task across boards
+                    unique_tasks[content_id] = max(unique_tasks.get(content_id, 0.0), hours)
+
+        total_load = sum(unique_tasks.values())
+        return total_load
 
     def get_child_issues_status(self, parent_title):
         """Finds all child issues linked to this parent title and returns if all are closed."""
