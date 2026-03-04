@@ -236,49 +236,57 @@ class Orchestrator:
         row = task['row_index'] + 1
         sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit?gid={GID}#gid={GID}&range=B{row}:C{row}"
         
-        # Build a cleaner, professional description
         description = f"ID: {task['id']}\nSheet Link: {sheet_link}\n\n"
-        description += f"## 📝 Description (English)\n\n{en_translation}\n\n"
-        description += f"## 📄 Source Content (Original)\n\n{task['content']}"
-        if task.get('english_translation_fallback'):
+        
+        # Check if we actually got a distinct translation
+        is_fallback = en_translation.strip() == task['content'].strip()
+        
+        if is_fallback:
+            # Detect if the raw content is Japanese or English
+            is_likely_jp = any(ord(c) > 128 for c in task['content'][:100])
+            header = "## 📄 Source Content (Japanese)" if is_likely_jp else "## 📝 Source Content (English)"
+            description += f"{header}\n\n{task['content']}"
+            if is_likely_jp:
+                description += "\n\n> ⚠️ *Note: Automatic translation unavailable due to API limit.*"
+        else:
+            # Clean bilingual format
+            description += f"## 📝 Description (English)\n\n{en_translation}\n\n"
+            description += f"## 📄 Source Content (Original)\n\n{task['content']}"
+            
+        if task.get('english_translation_fallback') and not is_fallback:
             description += f"\n\n## 📝 Sheet Translation (Original)\n\n{task['english_translation_fallback']}"
             
         return description, title_summary, romaji_name
 
     def _translate_and_summarize(self, text, fallback_translation=""):
-        if not self.client: return "Bug Report", fallback_translation if fallback_translation else text
-        
-        prompt = f"""
-        You are a technical coordinator. Analyze the following bug report from a Google Sheet.
-        
-        TASKS:
-        1. If the input is in Japanese, translate it to professional English.
-        2. If the input is already in English, polish it for clarity and remove any "internal" noise.
-        3. Provide a very concise title (3-7 words) for a GitHub Issue.
-        
-        INPUT TEXT:
-        {text}
-        
-        {f"SHEET PROVIDED TRANSLATION (FOR REFERENCE): {fallback_translation}" if fallback_translation else ""}
-        
-        OUTPUT FORMAT (MANDATORY):
-        TITLE: <Your concise title>
-        TRANSLATION: <Your polished/translated English text>
-        """
-        
-        try:
-            response = self.client.models.generate_content(model=self.model_name, contents=prompt)
-            result = response.text.strip()
-            if "TITLE:" in result and "TRANSLATION:" in result:
-                title = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip().replace("**", "").replace("#", "")
-                trans = result.split("TRANSLATION:")[1].strip()
-                return title, trans
-        except Exception as e:
-            print(f"LLM ERROR: {e}")
+        if self.client:
+            prompt = f"""
+            You are a technical coordinator. Analyze the following bug report from a Google Sheet.
+            1. If Japanese, translate to professional English. 2. If English, polish for clarity.
+            3. Provide a very concise title (3-7 words) for a GitHub Issue.
+            INPUT: {text}
+            OUTPUT FORMAT:
+            TITLE: <Concise Title>
+            TRANSLATION: <Polished/Translated English>
+            """
+            try:
+                response = self.client.models.generate_content(model=self.model_name, contents=prompt)
+                result = response.text.strip()
+                if "TITLE:" in result and "TRANSLATION:" in result:
+                    title = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip().replace("**", "").replace("#", "")
+                    trans = result.split("TRANSLATION:")[1].strip()
+                    return title, trans
+            except Exception as e:
+                if "429" not in str(e): print(f"LLM ERROR: {e}")
+
+        # --- REFINED FALLBACK LOGIC ---
+        first_line = text.split('\n')[0]
+        # Clean up title: no more than 60 chars, don't break words
+        if len(first_line) > 60:
+            title = first_line[:60].rsplit(' ', 1)[0] + "..."
+        else:
+            title = first_line
             
-        # Fallback logic for title
-        lines = text.split('\n')
-        title = lines[0][:50] + "..." if len(lines[0]) > 50 else lines[0]
         return title, text
 
     def _send_daily_report(self, all_tasks):
