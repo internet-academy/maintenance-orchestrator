@@ -134,8 +134,11 @@ class CloudIngestor:
                     worksheet.update_cell(r + 1, c + 2, end_date)
 
     def _is_valid(self, task):
-        # Reject tasks with no date, no requester, OR no content
-        return "2025" not in task['date'] and task['requester'] != "" and task['content'] != ""
+        # Reject tasks with no date, no requester, OR no content.
+        # Ensure we are processing current 2026 tasks.
+        has_metadata = task['requester'] != "" and task['content'] != ""
+        is_current = "2026" in task['date']
+        return has_metadata and is_current
 
     def _parse_block_from_list(self, data, start_index):
         """
