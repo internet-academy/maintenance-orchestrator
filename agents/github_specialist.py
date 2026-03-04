@@ -106,26 +106,28 @@ class GitHubSpecialist:
               items(first: 100) {
                 nodes {
                   fieldValues(first: 20) {
-                  nodes {
-                    ... on ProjectV2ItemFieldTextValue { 
-                      text 
-                      field { ... on ProjectV2Field { id name } } 
-                    }
-                    ... on ProjectV2ItemFieldNumberValue { 
-                      number 
-                      field { ... on ProjectV2Field { id name } } 
-                    }
-                    ... on ProjectV2ItemFieldSingleSelectValue { 
-                      name 
-                      field { ... on ProjectV2Field { id name } } 
+                    nodes {
+                      ... on ProjectV2ItemFieldTextValue { 
+                        text 
+                        field { ... on ProjectV2Field { id name } } 
+                      }
+                      ... on ProjectV2ItemFieldNumberValue { 
+                        number 
+                        field { ... on ProjectV2Field { id name } } 
+                      }
+                      ... on ProjectV2ItemFieldSingleSelectValue { 
+                        name 
+                        field { ... on ProjectV2Field { id name } } 
+                      }
                     }
                   }
-                  }
-
                   content {
                     ... on Issue {
                       assignees(first: 10) { nodes { login } }
                       closed
+                    }
+                    ... on DraftIssue {
+                      assignees(first: 10) { nodes { login } }
                     }
                   }
                 }
@@ -146,12 +148,13 @@ class GitHubSpecialist:
         
         for item in items:
             content = item.get("content", {})
-            # Skip if content is missing or issue is closed
-            if not content or content.get("closed"):
+            # Skip if content is missing or issue is explicitly closed
+            if not content or content.get("closed") is True:
                 continue
                 
             assignees = [a["login"] for a in content.get("assignees", {}).get("nodes", [])]
-            if github_username not in assignees:
+            # Match case-insensitive for safety
+            if github_username.lower() not in [a.lower() for a in assignees]:
                 continue
             
             # Extract hours from the specific field ID
@@ -161,9 +164,10 @@ class GitHubSpecialist:
             for fv in item.get("fieldValues", {}).get("nodes", []):
                 field_data = fv.get("field", {})
                 field_id = field_data.get("id")
+                field_name = field_data.get("name")
                 
-                # Check Hours (Could be text or number depending on Project config)
-                if field_id == target_field_id:
+                # Check Hours (Target by ID or exact Name)
+                if field_id == target_field_id or field_name == "Assigned Hours":
                     try:
                         # Try 'number' first, then fallback to 'text'
                         val = fv.get("number")
@@ -175,7 +179,7 @@ class GitHubSpecialist:
                         hours = 0.0
                 
                 # Check if Status is 'Done' (to skip)
-                if field_id == self.field_ids['status'] and fv.get("name") == "Done":
+                if (field_id == self.field_ids['status'] or field_name == "Status") and fv.get("name") == "Done":
                     is_done = True
             
             if not is_done:
