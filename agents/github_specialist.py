@@ -96,19 +96,34 @@ class GitHubSpecialist:
             print(f"[DRY RUN] Project {project_number} update: {field_key} -> {value}")
             return
 
+        # Determine the value type for GraphQL
+        if is_option:
+            v_key = "singleSelectOptionId"
+            v_val = str(value)
+        elif "-" in str(value) and len(str(value)) == 10:
+            v_key = "date"
+            v_val = str(value)
+        elif isinstance(value, (int, float)):
+            v_key = "number"
+            v_val = float(value)
+        else:
+            v_key = "text"
+            v_val = str(value)
+
         mutation = """
-        mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+        mutation($project: ID!, $item: ID!, $field: ID!, $value: %VAL_TYPE%!) {
           updateProjectV2ItemFieldValue(input: {
             projectId: $project, itemId: $item, fieldId: $field,
-            value: { %VALUE_TYPE%: $value }
+            value: { %KEY%: $value }
           }) { clientMutationId }
         }
         """
-        v_type = "singleSelectOptionId" if is_option else ("date" if "-" in str(value) and len(str(value)) == 10 else "text")
-        if not is_option and isinstance(value, (int, float)): v_type = "number"
+        val_type = "String"
+        if v_key == "number": val_type = "Float"
+        # In ProjectV2, date is passed as a String to the 'date' input
         
-        query = mutation.replace("%VALUE_TYPE%", v_type)
-        variables = {"project": project_id, "item": item_id, "field": field_id, "value": str(value) if v_type != "number" else value}
+        query = mutation.replace("%VAL_TYPE%", val_type).replace("%KEY%", v_key)
+        variables = {"project": project_id, "item": item_id, "field": field_id, "value": v_val}
         
         response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": variables})
         response.raise_for_status()
