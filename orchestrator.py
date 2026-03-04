@@ -192,23 +192,41 @@ class Orchestrator:
             if self.dry_run: return
 
             try:
+                # Phase 1: Create GitHub Issue (Parent)
                 issue = self.gh_specialist.create_issue(
                     repo="member", title=summary, body=full_desc, assignee=best_dev['id'], labels=["staff-report"]
                 )
                 issue_url = issue['html_url']
-                item_id = self.gh_specialist.add_to_project(issue['node_id'])
+                parent_node_id = issue['node_id']
+                parent_number = issue['number']
+                item_id = self.gh_specialist.add_to_project(parent_node_id)
                 
-                # Update Project Fields
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['status'], self.gh_specialist.status_options['In progress'], is_option=True)
+                # Update Parent Fields (Initial Status: To Triage)
+                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['status'], self.gh_specialist.status_options['To Triage'], is_option=True)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['start_date'], start_date)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['end_date'], end_date)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['priority'], self.gh_specialist.priority_options[priority], is_option=True)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['level'], self.gh_specialist.level_options['Parent'], is_option=True)
                 self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['hours'], task['estimated_hours'])
                 
+                # Phase 2: Create Sub-issue (Understand the Request)
+                sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{parent_number})"
+                sub_body = f"Mandatory 20-minute task to review and clarify requirements for #{parent_number}."
+                sub_issue = self.gh_specialist.create_issue(
+                    repo="member", title=sub_title, body=sub_body, assignee=best_dev['id'], labels=["staff-report"]
+                )
+                sub_item_id = self.gh_specialist.add_to_project(sub_issue['node_id'])
+                
+                # Update Sub-issue Fields
+                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['status'], self.gh_specialist.status_options['To Triage'], is_option=True)
+                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['level'], self.gh_specialist.level_options['Child'], is_option=True)
+                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['hours'], 0.33)
+                # Link to Parent
+                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['parent_issue'], summary)
+
                 # Write back to Sheet
                 self.ingestor.write_backlog_id(task['anchors'], issue_url)
-                self.ingestor.write_status(task['anchors'], "In Progress")
+                self.ingestor.write_status(task['anchors'], "Open") # "To Triage" maps to "Open" in sheet
                 if hasattr(self.ingestor, 'write_pic'): self.ingestor.write_pic(task['anchors'], best_dev['name'])
                 if hasattr(self.ingestor, 'write_dates'): self.ingestor.write_dates(task['anchors'], start_date, end_date)
                 

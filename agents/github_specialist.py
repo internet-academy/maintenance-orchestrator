@@ -38,8 +38,10 @@ class GitHubSpecialist:
             "P2": "da944a9c"
         }
         self.level_options = {
-            "Parent": "bae6dbb7"
+            "Parent": "bae6dbb7",
+            "Child": "8c0ea3a0"
         }
+        self.field_ids["parent_issue"] = "PVTF_lADOA1jKuM4BQoqlzg-squo"
 
     def create_issue(self, repo, title, body, assignee=None, labels=None):
         """Creates a GitHub Issue and optionally assigns it."""
@@ -55,11 +57,53 @@ class GitHubSpecialist:
 
         if self.dry_run:
             print(f"[DRY RUN] Would create GitHub issue in {repo}: {title}")
-            return {"number": 999, "html_url": f"https://github.com/{self.org}/{repo}/issues/999", "node_id": "MOCK_NODE_ID"}
+            # Mocking a realistic response
+            return {"number": 2500, "html_url": f"https://github.com/{self.org}/{repo}/issues/2500", "node_id": "MOCK_NODE_ID", "id": 123456}
 
         response = requests.post(url, headers=self.headers, json=payload)
         response.raise_for_status()
         return response.json()
+
+    def get_project_item_data(self, issue_number):
+        """Fetches all project field values for a specific issue number."""
+        query = """
+        query($org: String!, $number: Int!) {
+          organization(login: $org) {
+            projectV2(number: 4) {
+              items(first: 100) {
+                nodes {
+                  id
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } }
+                      ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } }
+                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } }
+                      ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } }
+                    }
+                  }
+                  content {
+                    ... on Issue { number assignees(first: 1) { nodes { login } } }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
+        items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+        
+        for item in items:
+            content = item.get('content')
+            if content and content.get('number') == issue_number:
+                # Extract clean field map
+                data = {'item_id': item['id'], 'assignee': content.get('assignees', {}).get('nodes', [{}])[0].get('login')}
+                for fv in item.get('fieldValues', {}).get('nodes', []):
+                    name = fv.get('field', {}).get('name')
+                    val = fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')
+                    data[name] = val
+                return data
+        return None
 
     def add_to_project(self, issue_node_id):
         """Adds a GitHub Issue to ProjectV2."""
