@@ -52,6 +52,29 @@ class DeveloperTimeline:
             
         return last_date or self.buckets[0]['date']
 
+    def fill_hours_with_dates(self, hours):
+        """
+        Similar to fill_hours but returns (start_date, end_date).
+        Start date is the date of the FIRST bucket that takes some hours.
+        End date is the date of the LAST bucket that takes some hours.
+        """
+        remaining = float(hours)
+        start_date = None
+        end_date = None
+        
+        for bucket in self.buckets:
+            if remaining <= 0: break
+            can_take = min(remaining, bucket['remaining'])
+            if can_take > 0:
+                if not start_date: start_date = bucket['date']
+                bucket['used'] += can_take
+                bucket['remaining'] -= can_take
+                remaining -= can_take
+                end_date = bucket['date']
+        
+        if remaining > 0: return None, None
+        return start_date, end_date
+
     def get_today_usage(self):
         return self.buckets[0]['used']
 

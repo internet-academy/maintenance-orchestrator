@@ -90,14 +90,48 @@ class CloudIngestor:
         worksheet = self.get_current_month_worksheet()
         
         # VERIFICATION
-        # row, col are 0-based. gspread is 1-based.
-        # Anchor (Label) is at (row+1, col+1).
-        # Value is at (row+1, col+2).
         label_cell = worksheet.cell(row + 1, col + 1).value
         if "Status" in label_cell:
             worksheet.update_cell(row + 1, col + 2, status_text)
         else:
             print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'Status', found '{label_cell}'. Write ABORTED.")
+
+    def write_pic(self, anchor_map, pic_name):
+        """Writes the PIC using verified anchor coordinates."""
+        if not anchor_map or 'pic' not in anchor_map:
+            print("ERROR: No anchor found for PIC. Skipping write.")
+            return
+
+        row, col = anchor_map['pic']
+        worksheet = self.get_current_month_worksheet()
+        
+        # Verification: Label should be "PIC"
+        label_cell = str(worksheet.cell(row + 1, col + 1).value or "").strip()
+        if "PIC" in label_cell:
+            worksheet.update_cell(row + 1, col + 2, pic_name)
+        else:
+            print(f"CRITICAL: Anchor mismatch at R{row+1}C{col+1}. Expected 'PIC', found '{label_cell}'. Write ABORTED.")
+
+    def write_dates(self, anchor_map, start_date, end_date):
+        """
+        Writes Start and End dates. 
+        Note: The sheet may not have explicit anchors for these, so we use heuristics 
+        near the Status/PIC area if missing, but for now we look for 'Start Date' labels.
+        """
+        worksheet = self.get_current_month_worksheet()
+        
+        # Heuristic: Find 'Start Date' and 'End Date' labels in the same block
+        # We search the block rows (roughly 15 rows)
+        if not anchor_map or 'status' not in anchor_map: return
+        
+        row_start, _ = anchor_map['status']
+        for r in range(row_start, row_start + 10):
+            row_vals = worksheet.row_values(r + 1)
+            for c, val in enumerate(row_vals):
+                if "Start date" in str(val):
+                    worksheet.update_cell(r + 1, c + 2, start_date)
+                if "End date" in str(val) or "Finish date" in str(val):
+                    worksheet.update_cell(r + 1, c + 2, end_date)
 
     def _is_valid(self, task):
         # Reject tasks with no date, no requester, OR no content
