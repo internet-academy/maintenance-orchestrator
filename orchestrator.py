@@ -248,9 +248,14 @@ class Orchestrator:
                 sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{parent_number})"
                 sub_body = f"Mandatory 20-minute task to review and clarify requirements for #{parent_number}."
                 sub_issue = self.gh_specialist.create_issue(
-                    repo="member", title=sub_title, body=sub_body, assignee=best_dev['id'], labels=["staff-report"]
+                    repo=target_repo, title=sub_title, body=sub_body, assignee=best_dev['id'], labels=["staff-report"]
                 )
-                sub_item_id = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
+                sub_node_id = sub_issue['node_id']
+                sub_item_id = self.gh_specialist.add_to_project(sub_node_id, 4)
+
+                # Natively link sub-issue to parent
+                self.gh_specialist.link_subissue(parent_node_id, sub_node_id)
+
                 
                 # Update Sub-issue Fields (Project 4 only)
                 self.gh_specialist.update_field(4, sub_item_id, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)

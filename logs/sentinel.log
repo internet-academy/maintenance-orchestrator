@@ -2684,3 +2684,20 @@ https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/READM
 ✅ Blueprints Synchronized.
 🔄 Syncing Blueprints for: member...
 🧹 Preparing clean copy for member (excluding static/media)...
+🏗  Refreshing member (L1-L3)...
+/home/min/projects/personal-agents/scanner.py:90: DeprecationWarning: ast.Str is deprecated and will be removed in Python 3.14; use ast.Constant instead
+  if subnode.value.args and isinstance(subnode.value.args[0], (ast.Constant, ast.Str)):
+/home/min/projects/personal-agents/scanner.py:91: DeprecationWarning: Attribute s is deprecated and will be removed in Python 3.14; use value instead
+  target = subnode.value.args[0].s if hasattr(subnode.value.args[0], 's') else subnode.value.args[0].value
+🚀 Deep Scanning /tmp/blueprint_sync_member...
+✅ Deep Blueprint saved to /home/min/projects/personal-agents/member_blueprint.md
+🧠 Refreshing member Semantics (L4)...
+/home/min/projects/personal-agents/semantic_indexer.py:9: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai

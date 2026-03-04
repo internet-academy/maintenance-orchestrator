@@ -105,7 +105,7 @@ class GitHubSpecialist:
             v_val = str(value)
         elif "-" in str(value) and len(str(value)) == 10:
             v_key = "date"
-            v_type = "Date" # Use Date type for the variable
+            v_type = "Date"
             v_val = str(value)
         elif isinstance(value, (int, float)):
             v_key = "number"
@@ -132,6 +132,30 @@ class GitHubSpecialist:
         if "errors" in res_json:
             print(f"ERROR updating project {project_number} field {field_key}: {res_json['errors']}")
         response.raise_for_status()
+
+    def link_subissue(self, parent_node_id, child_node_id):
+        """Natively links a sub-issue to a parent issue in GitHub."""
+        if self.dry_run:
+            print(f"[DRY RUN] Would link child {child_node_id} to parent {parent_node_id}")
+            return
+
+        query = """
+        mutation($parent: ID!, $child: ID!) {
+          addSubIssue(input: {issueId: $parent, subIssueId: $child}) {
+            parentIssue { id }
+          }
+        }
+        """
+        vars = {"parent": parent_node_id, "child": child_node_id}
+        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": vars})
+        response.raise_for_status()
+
+    def get_issue_node_id(self, repo, number):
+        """Fetches the global Node ID for a specific issue number."""
+        url = f"https://api.github.com/repos/{self.org}/{repo}/issues/{number}"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json()['node_id']
 
     def get_project_item_data(self, issue_number, project_number=4):
         """Fetches all project field values for a specific issue number."""
@@ -173,25 +197,14 @@ class GitHubSpecialist:
         return None
 
     def get_active_workload(self, github_username):
-        """
-        Fetches active issues for a user across ALL projects in the organization
-        and sums their 'Assigned Hours', de-duplicating by Issue/PR ID.
-        """
-        # 1. Fetch all project numbers for the organization
+        """Fetches active issues for a user across ALL projects in the organization."""
         query_projects = """
-        query($org: String!) {
-          organization(login: $org) {
-            projectsV2(first: 20) {
-              nodes { number title }
-            }
-          }
-        }
+        query($org: String!) { organization(login: $org) { projectsV2(first: 20) { nodes { number } } } }
         """
         resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
         project_nums = [p['number'] for p in resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])]
 
-        unique_tasks = {} # content_id -> hours
-        
+        unique_tasks = {} 
         for p_num in project_nums:
             query_items = """
             query($org: String!, $number: Int!) {
@@ -222,62 +235,35 @@ class GitHubSpecialist:
             for item in items:
                 content = item.get("content")
                 if not content or content.get("closed") is True: continue
-                
                 assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", [])]
                 if github_username.lower() not in assignees: continue
                 
-                # Extract Hours
                 hours = 0.0
                 is_done = False
                 for fv in item.get("fieldValues", {}).get("nodes", []):
                     field_name = fv.get("field", {}).get("name")
-                    if "Hours" in field_name:
-                        hours = float(fv.get("number") or fv.get("text") or 0.0)
-                    if field_name == "Status" and fv.get("name") == "Done":
-                        is_done = True
+                    if "Hours" in field_name: hours = float(fv.get("number") or fv.get("text") or 0.0)
+                    if field_name == "Status" and fv.get("name") == "Done": is_done = True
                 
                 if not is_done:
-                    content_id = content['id']
-                    # Keep the maximum hours found for this task across boards
-                    unique_tasks[content_id] = max(unique_tasks.get(content_id, 0.0), hours)
-
-        total_load = sum(unique_tasks.values())
-        return total_load
+                    unique_tasks[content['id']] = max(unique_tasks.get(content['id'], 0.0), hours)
+        return sum(unique_tasks.values())
 
     def get_child_issues_status(self, parent_title):
-        """Finds all child issues linked to this parent title and returns if all are closed."""
         query = """
-        query($org: String!) {
-          organization(login: $org) {
-            projectV2(number: 4) {
-              items(first: 100) {
-                nodes {
-                  fieldValues(first: 20) {
-                    nodes {
-                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
-                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
-                    }
-                  }
-                  content {
-                    ... on Issue { state }
-                  }
-                }
-              }
-            }
-          }
-        }
+        query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes {
+          fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } 
+          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } }
+          content { ... on Issue { state } }
+        } } } } }
         """
         response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
         items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-        
         children_found = 0
         children_closed = 0
-        
         for item in items:
             fields = {fv.get('field', {}).get('name'): (fv.get('text') or fv.get('name')) for fv in item.get('fieldValues', {}).get('nodes', [])}
             if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
                 children_found += 1
-                if item.get('content', {}).get('state') == 'CLOSED':
-                    children_closed += 1
-        
+                if item.get('content', {}).get('state') == 'CLOSED': children_closed += 1
         return children_found > 0 and children_found == children_closed
