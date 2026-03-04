@@ -87,7 +87,7 @@ class GitHubSpecialist:
         return response.json()["data"]["addProjectV2ItemById"]["item"]["id"]
 
     def update_field(self, project_number, item_id, field_key, value, is_option=False):
-        """Updates a field in a project."""
+        """Updates a field in a project with explicit type handling."""
         project_id = self.projects[project_number]["id"]
         field_id = self.projects[project_number]["fields"].get(field_key)
         if not field_id: return
@@ -96,18 +96,22 @@ class GitHubSpecialist:
             print(f"[DRY RUN] Project {project_number} update: {field_key} -> {value}")
             return
 
-        # Determine the value type for GraphQL
+        # Explicit type selection based on value and field configuration
         if is_option:
             v_key = "singleSelectOptionId"
+            v_type = "String"
             v_val = str(value)
         elif "-" in str(value) and len(str(value)) == 10:
             v_key = "date"
+            v_type = "String" # Date is passed as String in V2 input
             v_val = str(value)
         elif isinstance(value, (int, float)):
             v_key = "number"
+            v_type = "Float"
             v_val = float(value)
         else:
             v_key = "text"
+            v_type = "String"
             v_val = str(value)
 
         mutation = """
@@ -118,14 +122,13 @@ class GitHubSpecialist:
           }) { clientMutationId }
         }
         """
-        val_type = "String"
-        if v_key == "number": val_type = "Float"
-        # In ProjectV2, date is passed as a String to the 'date' input
-        
-        query = mutation.replace("%VAL_TYPE%", val_type).replace("%KEY%", v_key)
+        query = mutation.replace("%VAL_TYPE%", v_type).replace("%KEY%", v_key)
         variables = {"project": project_id, "item": item_id, "field": field_id, "value": v_val}
         
         response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": variables})
+        res_json = response.json()
+        if "errors" in res_json:
+            print(f"ERROR updating project {project_number} field {field_key}: {res_json['errors']}")
         response.raise_for_status()
 
     def get_project_item_data(self, issue_number, project_number=4):
