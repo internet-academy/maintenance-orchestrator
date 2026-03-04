@@ -238,23 +238,26 @@ class Orchestrator:
         
         description = f"ID: {task['id']}\nSheet Link: {sheet_link}\n\n"
         
-        # Check if we actually got a distinct translation
+        # Check if we actually got a distinct translation from Gemini
         is_fallback = en_translation.strip() == task['content'].strip()
         
         if is_fallback:
-            # Detect if the raw content is Japanese or English
-            is_likely_jp = any(ord(c) > 128 for c in task['content'][:100])
-            header = "## 📄 Source Content (Japanese)" if is_likely_jp else "## 📝 Source Content (English)"
-            description += f"{header}\n\n{task['content']}"
-            if is_likely_jp:
-                description += "\n\n> ⚠️ *Note: Automatic translation unavailable due to API limit.*"
+            # Detect if we have a Sheet Translation available
+            sheet_translation = task.get('english_translation_fallback', '').strip()
+            
+            if sheet_translation:
+                description += f"## 📝 Description (Sheet Translation)\n\n{sheet_translation}\n\n"
+                description += f"## 📄 Source Content (Original)\n\n{task['content']}"
+            else:
+                is_likely_jp = any(ord(c) > 128 for c in task['content'][:100])
+                header = "## 📄 Source Content (Japanese)" if is_likely_jp else "## 📝 Source Content (English)"
+                description += f"{header}\n\n{task['content']}"
+                if is_likely_jp:
+                    description += "\n\n> ⚠️ *Note: Automatic translation unavailable due to API limit.*"
         else:
-            # Clean bilingual format
+            # Clean Gemini-generated format
             description += f"## 📝 Description (English)\n\n{en_translation}\n\n"
             description += f"## 📄 Source Content (Original)\n\n{task['content']}"
-            
-        if task.get('english_translation_fallback') and not is_fallback:
-            description += f"\n\n## 📝 Sheet Translation (Original)\n\n{task['english_translation_fallback']}"
             
         return description, title_summary, romaji_name
 
