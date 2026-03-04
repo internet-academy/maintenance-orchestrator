@@ -73,16 +73,24 @@ class GitSync:
                     if not self.dry_run:
                         self.ingestor.write_pic(task['anchors'], new_pic_name)
 
-                # 5. Pull Dates
+                # 5. Pull Dates from Project 4
                 gh_start = gh_data.get('Start date')
                 gh_end = gh_data.get('End date')
                 
-                # Note: Currently CloudIngestor doesn't store 'original_dates' in the task dict
-                # so we always write if found to ensure they are live.
                 if gh_start and gh_end:
-                    # We only write if they are different (optional optimization)
                     if not self.dry_run:
                         self.ingestor.write_dates(task['anchors'], gh_start, gh_end)
+                        
+                        # --- AUTO-SYNC TO PROJECT 3 ---
+                        # If we have dates in P4, ensure they exist in P3 too
+                        try:
+                            p3_data = self.gh_specialist.get_project_item_data(issue_num, project_number=3)
+                            if p3_data and (not p3_data.get('Start date') or not p3_data.get('End date')):
+                                print(f"  - AUTO-SYNC: Copying dates for #{issue_num} from P4 to P3")
+                                self.gh_specialist.update_field(3, p3_data['item_id'], 'start_date', gh_start)
+                                self.gh_specialist.update_field(3, p3_data['item_id'], 'end_date', gh_end)
+                        except Exception as e:
+                            print(f"DEBUG: P3 auto-sync failed for #{issue_num}: {e}")
 
             except Exception as e:
                 print(f"GIT SYNC ERROR for Issue #{issue_num}: {e}")
