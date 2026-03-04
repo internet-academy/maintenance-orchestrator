@@ -40,13 +40,12 @@ class GitSync:
             issue_num = int(match.group(1))
             
             try:
-                # 1. Fetch live data from GitHub Project
-                gh_data = self.gh_specialist.get_project_item_data(issue_num)
+                # 1. Fetch live data from GitHub Project 4 (Maintenance)
+                gh_data = self.gh_specialist.get_project_item_data(issue_num, project_number=4)
                 if not gh_data:
                     continue
                 
                 # 2. Map GitHub Status to Sheet Display
-                # Only change to "In Progress" if explicitly set on GitHub
                 gh_status = gh_data.get('Status')
                 sheet_status = task.get('current_sheet_status', '')
                 

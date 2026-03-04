@@ -198,30 +198,35 @@ class Orchestrator:
                 issue_url = issue['html_url']
                 parent_node_id = issue['node_id']
                 parent_number = issue['number']
-                item_id = self.gh_specialist.add_to_project(parent_node_id)
                 
-                # Update Parent Fields (Initial Status: To Triage)
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['status'], self.gh_specialist.status_options['To Triage'], is_option=True)
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['start_date'], start_date)
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['end_date'], end_date)
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['priority'], self.gh_specialist.priority_options[priority], is_option=True)
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['level'], self.gh_specialist.level_options['Parent'], is_option=True)
-                self.gh_specialist.update_project_field(item_id, self.gh_specialist.field_ids['hours'], task['estimated_hours'])
+                # --- PROJECT 4 (Maintenance) ---
+                item_id_p4 = self.gh_specialist.add_to_project(parent_node_id, 4)
+                self.gh_specialist.update_field(4, item_id_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
+                self.gh_specialist.update_field(4, item_id_p4, 'start_date', start_date)
+                self.gh_specialist.update_field(4, item_id_p4, 'end_date', end_date)
+                self.gh_specialist.update_field(4, item_id_p4, 'priority', self.gh_specialist.projects[4]['options'][f'priority_{priority.lower()}'], is_option=True)
+                self.gh_specialist.update_field(4, item_id_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
+                self.gh_specialist.update_field(4, item_id_p4, 'hours', task['estimated_hours'])
                 
+                # --- PROJECT 3 (Overall Project Management) ---
+                item_id_p3 = self.gh_specialist.add_to_project(parent_node_id, 3)
+                # Set custom field 'project' to 'Maintenance'
+                self.gh_specialist.update_field(3, item_id_p3, 'project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
+
                 # Phase 2: Create Sub-issue (Understand the Request)
                 sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{parent_number})"
                 sub_body = f"Mandatory 20-minute task to review and clarify requirements for #{parent_number}."
                 sub_issue = self.gh_specialist.create_issue(
                     repo="member", title=sub_title, body=sub_body, assignee=best_dev['id'], labels=["staff-report"]
                 )
-                sub_item_id = self.gh_specialist.add_to_project(sub_issue['node_id'])
+                sub_item_id = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
                 
-                # Update Sub-issue Fields
-                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['status'], self.gh_specialist.status_options['To Triage'], is_option=True)
-                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['level'], self.gh_specialist.level_options['Child'], is_option=True)
-                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['hours'], 0.33)
+                # Update Sub-issue Fields (Project 4 only)
+                self.gh_specialist.update_field(4, sub_item_id, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
+                self.gh_specialist.update_field(4, sub_item_id, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
+                self.gh_specialist.update_field(4, sub_item_id, 'hours', 0.33)
                 # Link to Parent
-                self.gh_specialist.update_project_field(sub_item_id, self.gh_specialist.field_ids['parent_issue'], summary)
+                self.gh_specialist.update_field(4, sub_item_id, 'parent_issue', summary)
 
                 # Write back to Sheet
                 self.ingestor.write_backlog_id(task['anchors'], issue_url)
