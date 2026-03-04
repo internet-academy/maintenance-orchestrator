@@ -105,3 +105,4 @@ Feb 26, 2026: Nulab-GitHub Orchestrator Upgraded. Implementation of Stateful Ing
 Feb 26, 2026: Resolved CKEditor 5 Japanese translation issue. Created PR #2533 (branch fix/ckeditor-ja-assets) including all static assets. User manually resolved 'untracked files' conflict on the test server and pulled the changes. Task finalized.
 IMPROVEMENT: Enhanced translation quality by adding context-aware prompts, 1000ms endpointing, and sequential context history processing in live_gui.py.
 IMPROVEMENT: Implemented Dynamic AGC and Noise Gate in live_gui.py to improve audio clarity and prevent clipping. Added context-aware translation with GPT-4o-mini and increased Deepgram endpointing to 1000ms.
+ADDED ALIAS: 'translator' maps to /home/min/projects/meeting-translator/run_hud.sh for instant startup of the Meeting Translator HUD.
