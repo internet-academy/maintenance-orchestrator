@@ -97,8 +97,7 @@ class GitHubSpecialist:
 
     def get_active_workload(self, github_username):
         """
-        Fetches active issues for a user in Project 4 and estimates workload.
-        For simplicity, we assume 1.0h per active issue if 'Assigned Hours' is empty.
+        Fetches active issues for a user in Project 4 and sums their 'Assigned Hours'.
         """
         query = """
         query($org: String!, $number: Int!) {
@@ -108,8 +107,14 @@ class GitHubSpecialist:
                 nodes {
                   fieldValues(first: 20) {
                     nodes {
-                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
-                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
+                      ... on ProjectV2ItemFieldTextValue { 
+                        text 
+                        field { ... on ProjectV2Field { id name } } 
+                      }
+                      ... on ProjectV2ItemFieldSingleSelectValue { 
+                        name 
+                        field { ... on ProjectV2Field { id name } } 
+                      }
                     }
                   }
                   content {
@@ -132,8 +137,11 @@ class GitHubSpecialist:
         items = data.get("data", {}).get("organization", {}).get("projectV2", {}).get("items", {}).get("nodes", [])
         
         active_load = 0.0
+        target_field_id = self.field_ids['hours'] # PVTF_lADOA1jKuM4BQoqlzg-sq_I
+        
         for item in items:
             content = item.get("content", {})
+            # Skip if content is missing or issue is closed
             if not content or content.get("closed"):
                 continue
                 
@@ -141,18 +149,27 @@ class GitHubSpecialist:
             if github_username not in assignees:
                 continue
             
-            # Check for 'Assigned Hours' field
-            hours = 1.0 # Default
+            # Extract hours from the specific field ID
+            hours = 0.0
+            is_done = False
+            
             for fv in item.get("fieldValues", {}).get("nodes", []):
-                if fv.get("field", {}).get("name") == "Assigned Hours":
+                field_data = fv.get("field", {})
+                field_id = field_data.get("id")
+                
+                # Check Hours
+                if field_id == target_field_id:
                     try:
-                        hours = float(fv.get("text", "1.0"))
-                    except:
-                        pass
-                if fv.get("field", {}).get("name") == "Status" and fv.get("name") == "Done":
-                    hours = 0.0 # Skip if status is Done even if issue is open
-                    
-            active_load += hours
+                        hours = float(fv.get("text", "0.0"))
+                    except (ValueError, TypeError):
+                        hours = 0.0
+                
+                # Check if Status is 'Done' (to skip)
+                if field_id == self.field_ids['status'] and fv.get("name") == "Done":
+                    is_done = True
+            
+            if not is_done:
+                active_load += hours
             
         return active_load
 
