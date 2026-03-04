@@ -240,6 +240,9 @@ class Orchestrator:
                 item_id_p3 = self.gh_specialist.add_to_project(parent_node_id, 3)
                 # Set custom field 'project' to 'Maintenance'
                 self.gh_specialist.update_field(3, item_id_p3, 'project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
+                # Set Dates in Project 3
+                self.gh_specialist.update_field(3, item_id_p3, 'start_date', start_date)
+                self.gh_specialist.update_field(3, item_id_p3, 'end_date', end_date)
 
                 # Phase 2: Create Sub-issue (Understand the Request)
                 sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{parent_number})"

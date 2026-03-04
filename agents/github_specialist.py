@@ -21,7 +21,9 @@ class GitHubSpecialist:
                 "id": "PVT_kwDOA1jKuM4BQoor",
                 "fields": {
                     "status": "PVTSSF_lADOA1jKuM4BQoorzg-spXY",
-                    "project": "PVTSSF_lADOA1jKuM4BQoorzg-tC7Q"
+                    "project": "PVTSSF_lADOA1jKuM4BQoorzg-tC7Q",
+                    "start_date": "PVTF_lADOA1jKuM4BQoorzg-xYWY",
+                    "end_date": "PVTF_lADOA1jKuM4BQoorzg-xYWs"
                 },
                 "options": {
                     "project_maintenance": "47686791"
