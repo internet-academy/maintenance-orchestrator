@@ -23,12 +23,22 @@ class GitHubSpecialist:
             "start_date": "PVTF_lADOA1jKuM4BQoqlzg-sq_Q",
             "end_date": "PVTF_lADOA1jKuM4BQoqlzg-sq_U",
             "finish_date": "PVTF_lADOA1jKuM4BQoqlzg-s8Hg",
-            "hours": "PVTF_lADOA1jKuM4BQoqlzg-sq_I"
+            "hours": "PVTF_lADOA1jKuM4BQoqlzg-sq_I",
+            "priority": "PVTSSF_lADOA1jKuM4BQoqlzg-sq_A",
+            "level": "PVTSSF_lADOA1jKuM4BQoqlzg-svGQ"
         }
         self.status_options = {
             "In progress": "47fc9ee4",
             "Done": "98236657",
             "To Triage": "23799a6c"
+        }
+        self.priority_options = {
+            "P0": "79628723",
+            "P1": "0a877460",
+            "P2": "da944a9c"
+        }
+        self.level_options = {
+            "Parent": "bae6dbb7"
         }
 
     def create_issue(self, repo, title, body, assignee=None, labels=None):
