@@ -5,63 +5,84 @@ from github import Github
 
 class GitSync:
     def __init__(self, github_token, ingestor, dry_run=False):
-        self.gh = Github(github_token)
+        self.gh_client = Github(github_token)
         self.ingestor = ingestor
         self.dry_run = dry_run
         
-        self.state_file = "git_sync_state.json"
-        self.state = self._load_state()
-
-    def _load_state(self):
-        if os.path.exists(self.state_file):
-            try:
-                with open(self.state_file, 'r') as f: return json.load(f)
-            except: return {}
-        return {}
-
-    def _save_state(self):
-        with open(self.state_file, 'w') as f: json.dump(self.state, f, indent=2)
+        # We need the GitHubSpecialist's specialized GraphQL logic here
+        from agents.github_specialist import GitHubSpecialist
+        self.gh_specialist = GitHubSpecialist(github_token, dry_run=dry_run)
 
     def scan_and_sync(self, tasks):
         """
-        Scans current tasks and checks their GitHub status to update the Sheet.
+        Pulls Status, PIC, and Dates from GitHub Project and updates the Sheet.
         """
-        print(f"GIT: Checking status for {len(tasks)} tasks...")
+        print(f"GIT: Syncing {len(tasks)} tasks from GitHub to Sheet...")
         
+        # Build Name -> Human Name map for PIC write-back
+        # (Inverse of developer_map in orchestrator)
+        user_to_name = {
+            os.getenv('GH_USER_SAURABH', 'Saurabh-IA').lower(): "Saurabh",
+            os.getenv('GH_USER_RAMAN', 'RmnSoni').lower(): "Raman",
+            os.getenv('GH_USER_EWAN', 'Froggyyyyyyy').lower(): "Ewan",
+            os.getenv('GH_USER_CHOO', 'young-min-choo').lower(): "Choo"
+        }
+
         for task in tasks:
-            issue_url = task.get('backlog_id') # Legacy key name
+            issue_url = task.get('backlog_id')
             if not issue_url or "github.com" not in issue_url:
                 continue
             
-            # Extract Repo and Number
-            match = re.search(r'github\.com/([^/]+)/([^/]+)/issues/(\d+)', issue_url)
+            # Extract Issue Number
+            match = re.search(r'/issues/(\d+)', issue_url)
             if not match: continue
-            
-            owner, repo_name, number = match.groups()
+            issue_num = int(match.group(1))
             
             try:
-                repo = self.gh.get_repo(f"{owner}/{repo_name}")
-                issue = repo.get_issue(int(number))
+                # 1. Fetch live data from GitHub Project
+                gh_data = self.gh_specialist.get_project_item_data(issue_num)
+                if not gh_data:
+                    continue
                 
-                # Logic: If issue is closed, Sheet status = "Complete!"
-                # If issue has a linked PR (complex via REST, but we can check for keywords/events), status = "In Progress"
+                # 2. Map GitHub Status to Sheet Display
+                # Only change to "In Progress" if explicitly set on GitHub
+                gh_status = gh_data.get('Status')
+                sheet_status = task.get('current_sheet_status', '')
                 
-                current_sheet_status = task.get('current_sheet_status', '')
+                new_sheet_status = None
+                if gh_status == "Done":
+                    new_sheet_status = "Complete!"
+                elif gh_status == "In progress":
+                    new_sheet_status = "In Progress"
+                elif gh_status in ["To Triage", "Backlog", "Ready"]:
+                    new_sheet_status = "Open"
                 
-                if issue.state == "closed":
-                    if current_sheet_status != "Complete!":
-                        print(f"SYNC: GitHub {number} Closed -> Sheet Complete!")
-                        if not self.dry_run:
-                            self.ingestor.write_status(task['anchors'], "Complete!")
-                else:
-                    # Check for PR activity (linked pull requests)
-                    # We can use the 'events' or just look for keywords in comments
-                    # For now, if it's open, it's "In Progress" in our workflow
-                    if current_sheet_status == "Waiting for Dev" or current_sheet_status == "Open":
-                         if issue.assignees:
-                            print(f"SYNC: GitHub {number} Assigned -> Sheet In Progress")
-                            if not self.dry_run:
-                                self.ingestor.write_status(task['anchors'], "In Progress")
+                # 3. Apply Status Update
+                if new_sheet_status and new_sheet_status != sheet_status:
+                    print(f"  - SYNC: Issue #{issue_num} Status: {gh_status} -> Sheet: {new_sheet_status}")
+                    if not self.dry_run:
+                        self.ingestor.write_status(task['anchors'], new_sheet_status)
+
+                # 4. Pull PIC/Assignee
+                gh_assignee = (gh_data.get('assignee') or "").lower()
+                current_pic = task.get('pic', '')
+                new_pic_name = user_to_name.get(gh_assignee)
+                
+                if new_pic_name and new_pic_name != current_pic:
+                    print(f"  - SYNC: Issue #{issue_num} Assignee: {gh_assignee} -> Sheet: {new_pic_name}")
+                    if not self.dry_run:
+                        self.ingestor.write_pic(task['anchors'], new_pic_name)
+
+                # 5. Pull Dates
+                gh_start = gh_data.get('Start date')
+                gh_end = gh_data.get('End date')
+                
+                # Note: Currently CloudIngestor doesn't store 'original_dates' in the task dict
+                # so we always write if found to ensure they are live.
+                if gh_start and gh_end:
+                    # We only write if they are different (optional optimization)
+                    if not self.dry_run:
+                        self.ingestor.write_dates(task['anchors'], gh_start, gh_end)
 
             except Exception as e:
-                print(f"GIT ERROR: Failed to sync {issue_url}: {e}")
+                print(f"GIT SYNC ERROR for Issue #{issue_num}: {e}")
