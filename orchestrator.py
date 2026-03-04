@@ -138,8 +138,13 @@ class Orchestrator:
             if self.git_sync:
                 self.git_sync.scan_and_sync(tasks)
 
+            import time
             for task in tasks:
                 self.process_task(task)
+                if not self.dry_run:
+                    time.sleep(2) # Avoid hitting API limits in live run
+                else:
+                    time.sleep(1) # Faster but still safe for dry run
             
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
