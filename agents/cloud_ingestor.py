@@ -228,10 +228,10 @@ class CloudIngestor:
                             except (ValueError, TypeError):
                                 continue
                     
-                if ("Backlog ID" in cell_clean or "Ticket" in cell_clean or "MD_SD-" in cell_clean) and col_idx + 1 < len(row):
+                if ("Backlog ID" in cell_clean or "Ticket" in cell_clean or "MD_SD-" in cell_clean or "github.com" in cell_clean) and col_idx + 1 < len(row):
                     # If the cell itself contains the ID, use it, otherwise check the next cell
-                    raw_id = cell_clean if "MD_SD-" in cell_clean else row[col_idx + 1].strip()
-                    if re.match(r"^[A-Z0-9_]+-\d+$", raw_id):
+                    raw_id = cell_clean if ("MD_SD-" in cell_clean or "github.com" in cell_clean) else row[col_idx + 1].strip()
+                    if re.match(r"^[A-Z0-9_]+-\d+$", raw_id) or "github.com" in raw_id:
                         task["backlog_id"] = raw_id
                         task["anchors"]["backlog_id"] = (abs_row_idx, col_idx)
 
