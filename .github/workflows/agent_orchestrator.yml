@@ -49,5 +49,10 @@ jobs:
           git config --global user.name "Gemini-Bot"
           git config --global user.email "bot@internet-academy.jp"
           git add sync_state.json
-          git commit -m "chore: sync state update [skip ci]" || echo "No changes to commit"
-          git push https://x-access-token:${{ secrets.GH_PAT_TOKEN }}@github.com/${{ github.repository }} main
+          # Only commit and push if sync_state.json actually changed
+          if git diff --staged --quiet; then
+            echo "No changes to sync_state.json. Skipping push."
+          else
+            git commit -m "chore: sync state update [skip ci]"
+            git push https://x-access-token:${{ secrets.GH_PAT_TOKEN }}@github.com/${{ github.repository }} main
+          fi
