@@ -336,12 +336,16 @@ class GitHubSpecialist:
                 # We only want Parent tasks for the daily summary
                 if fields.get("Level") == "Child": continue
 
+                # Safely extract the first assignee if one exists
+                assignee_nodes = content.get("assignees", {}).get("nodes", [])
+                assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
+
                 active_tasks.append({
                     "id": content['id'],
                     "number": content['number'],
                     "title": content['title'],
                     "url": content['url'],
-                    "assignee": content.get("assignees", {}).get("nodes", [{}])[0].get("login"),
+                    "assignee": assignee_login,
                     "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
                     "start_date": fields.get("Start date"),
                     "end_date": fields.get("End date"),
