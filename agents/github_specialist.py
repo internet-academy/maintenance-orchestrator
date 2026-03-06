@@ -15,6 +15,10 @@ class GitHubSpecialist:
         }
         self.graphql_url = "https://api.github.com/graphql"
         
+        # Initialize native GitHub client (PyGithub)
+        from github import Github
+        self.gh_client = Github(token)
+        
         # Project Configurations
         self.projects = {
             3: {
