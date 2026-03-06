@@ -119,20 +119,57 @@ class GitHubSpecialist:
         return load
 
     def get_full_active_tasks(self):
-        """Fetches all active tasks across projects with simplified robust logic."""
+        """Fetches all active tasks with hyper-resilient logic and explicit debugging."""
         active_tasks = []
         unique_ids = set()
         for p_num in [3, 4]:
-            query = "query($org: String!, $number: Int!) { organization(login: $org) { projectV2(number: $number) { title items(first: 100) { nodes { isArchived fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } } } } content { ... on Issue { id number title url closed assignees(first: 1) { nodes { login } } } ... on PullRequest { id number title url closed assignees(first: 1) { nodes { login } } } ... on DraftIssue { id title assignees(first: 1) { nodes { login } } } } } } } } }"
+            print(f"DEBUG: Querying Project #{p_num}...")
+            query = """
+            query($org: String!, $number: Int!) {
+              organization(login: $org) {
+                projectV2(number: $number) {
+                  title
+                  items(first: 100) {
+                    nodes {
+                      id
+                      isArchived
+                      content {
+                        __typename
+                        ... on Issue { id number title url closed assignees(first: 1) { nodes { login } } }
+                        ... on PullRequest { id number title url closed assignees(first: 1) { nodes { login } } }
+                        ... on DraftIssue { id title assignees(first: 1) { nodes { login } } }
+                      }
+                      fieldValues(first: 20) {
+                        nodes {
+                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """
             r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": p_num}})
-            data = r.json().get('data', {}).get('organization', {}).get('projectV2', {})
-            nodes = data.get('items', {}).get('nodes', [])
+            res_json = r.json()
+            
+            if "errors" in res_json:
+                print(f"DEBUG: Project {p_num} GraphQL Errors: {res_json['errors']}")
+                continue
+                
+            project_data = res_json.get('data', {}).get('organization', {}).get('projectV2', {})
+            nodes = project_data.get('items', {}).get('nodes', [])
+            print(f"DEBUG: Project {p_num} ('{project_data.get('title')}') returned {len(nodes)} items.")
             
             for item in nodes:
                 content = item.get('content')
                 if not content: continue
                 
-                # Check closed status safely across Issue/PR/Draft
+                # Resiliently check closed status
+                # DraftIssues don't have a 'closed' property, so default to False
                 is_closed = content.get('closed', False)
                 if is_closed or item.get('isArchived'): continue
                 
@@ -143,17 +180,23 @@ class GitHubSpecialist:
                 
                 if fields.get('Level') == 'Child': continue
                 
-                # Extract Assignee Login safely
                 assignees = content.get('assignees', {}).get('nodes', [])
                 login = assignees[0].get('login') if assignees else None
 
                 active_tasks.append({
-                    "id": content_id, "number": content.get('number', 'DRAFT'), "title": content.get('title'), "url": content.get('url', '#'),
+                    "id": content_id, 
+                    "number": content.get('number', 'DRAFT'), 
+                    "title": content.get('title'), 
+                    "url": content.get('url', '#'),
                     "assignee": login,
-                    "project_tag": fields.get('Portfolio Project') or fields.get('project') or data.get('title'),
-                    "start_date": fields.get('Start date'), "end_date": fields.get('End date'), "hours": float(fields.get('Assigned Hours') or 0.0)
+                    "project_tag": fields.get('Portfolio Project') or fields.get('project') or project_data.get('title', 'General'),
+                    "start_date": fields.get('Start date'), 
+                    "end_date": fields.get('End date'), 
+                    "hours": float(fields.get('Assigned Hours') or 0.0)
                 })
                 unique_ids.add(content_id)
+        
+        print(f"DEBUG: Final Active Task Count: {len(active_tasks)}")
         return active_tasks
 
     def get_child_issues_status(self, parent_title):
