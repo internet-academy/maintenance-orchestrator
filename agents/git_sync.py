@@ -82,7 +82,6 @@ class GitSync:
                         self.ingestor.write_dates(task['anchors'], gh_start, gh_end)
                         
                         # --- AUTO-SYNC TO PROJECT 3 ---
-                        # If we have dates in P4, ensure they exist in P3 too
                         try:
                             p3_data = self.gh_specialist.get_project_item_data(issue_num, project_number=3)
                             if p3_data and (not p3_data.get('Start date') or not p3_data.get('End date')):
@@ -91,6 +90,23 @@ class GitSync:
                                 self.gh_specialist.update_field(3, p3_data['item_id'], 'end_date', gh_end)
                         except Exception as e:
                             print(f"DEBUG: P3 auto-sync failed for #{issue_num}: {e}")
+
+                # 6. HEALING: Detect and Link orphaned sub-issues
+                try:
+                    parent_title = gh_data.get('Title')
+                    if not self.gh_specialist.get_child_issues_status(parent_title):
+                        print(f"  - HEALING: Searching for orphaned sub-issues for #{issue_num}...")
+                        query = f'repo:{self.gh_specialist.org}/member \"Sub-issue for #{issue_num}\" is:open'
+                        search_url = f"https://api.github.com/search/issues?q={query}"
+                        search_resp = requests.get(search_url, headers=self.gh_specialist.headers).json()
+                        
+                        for item in search_resp.get('items', []):
+                            child_node_id = item['node_id']
+                            parent_node_id = self.gh_specialist.get_issue_node_id("member", issue_num)
+                            print(f"    - RE-LINKING: Child #{item['number']} to Parent #{issue_num}")
+                            self.gh_specialist.link_subissue(parent_node_id, child_node_id)
+                except Exception as e:
+                    print(f"DEBUG: Hierarchy healing failed for #{issue_num}: {e}")
 
             except Exception as e:
                 print(f"GIT SYNC ERROR for Issue #{issue_num}: {e}")
