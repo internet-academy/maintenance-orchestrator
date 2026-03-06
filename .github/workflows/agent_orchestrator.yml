@@ -16,8 +16,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        # Use default token for Org repos, it's more reliable
         with:
-          token: ${{ secrets.GH_PAT_TOKEN }}
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,10 +50,9 @@ jobs:
           git config --global user.name "Gemini-Bot"
           git config --global user.email "bot@internet-academy.jp"
           git add sync_state.json
-          # Only commit and push if sync_state.json actually changed
           if git diff --staged --quiet; then
             echo "No changes to sync_state.json. Skipping push."
           else
             git commit -m "chore: sync state update [skip ci]"
-            git push https://x-access-token:${{ secrets.GH_PAT_TOKEN }}@github.com/${{ github.repository }} main
+            git push origin main
           fi
