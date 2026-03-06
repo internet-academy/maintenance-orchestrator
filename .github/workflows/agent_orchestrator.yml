@@ -42,17 +42,6 @@ jobs:
           GH_USER_RAMAN: "RmnSoni"
           GH_USER_EWAN: "Froggyyyyyyy"
           GH_USER_CHOO: "young-min-choo"
+          STATE_GIST_ID: "50a6b0cb6b461053f0aeb5d4d45fad94"
           DRY_RUN: "False"
         run: python3 orchestrator.py
-
-      - name: Commit State Sync
-        run: |
-          git config --global user.name "Gemini-Bot"
-          git config --global user.email "bot@internet-academy.jp"
-          git add sync_state.json
-          if git diff --staged --quiet; then
-            echo "No changes to sync_state.json. Skipping push."
-          else
-            git commit -m "chore: sync state update [skip ci]"
-            git push origin main
-          fi
