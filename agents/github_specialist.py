@@ -176,17 +176,28 @@ class GitHubSpecialist:
                 unique_ids.add(content['id'])
         return active_tasks
 
-    def get_child_issues_status(self, parent_title):
-        query = "query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes { fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } } content { ... on Issue { state } } } } } } }"
-        r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
-        items = r.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-        found = closed = 0
-        for item in items:
-            fields = {fv['field']['name']: (fv.get('text') or fv.get('name')) for fv in item['fieldValues']['nodes'] if fv.get('field')}
-            if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
-                found += 1
-                if item.get('content', {}).get('state') == 'CLOSED': closed += 1
-        return found > 0 and found == closed
+    def get_recent_repo_context(self, repo_name, days=3):
+        """Fetches a summary of recent file changes in the repository."""
+        since = (datetime.now() - timedelta(days=days)).isoformat()
+        url = f"https://api.github.com/repos/{self.org}/{repo_name}/commits"
+        params = {"since": since, "per_page": 10}
+        
+        try:
+            r = requests.get(url, headers=self.headers, params=params)
+            commits = r.json()
+            if not isinstance(commits, list): return ""
+            
+            context = []
+            files_changed = set()
+            for c in commits:
+                msg = c.get('commit', {}).get('message', '').split('\n')[0]
+                context.append(f"- {msg}")
+                # Optional: fetch files for each commit if we want more depth
+            
+            summary = "RECENT CODE CHANGES:\n" + "\n".join(context[:5])
+            return summary
+        except:
+            return ""
 
     def get_gist_content(self, gist_id, filename):
         """Fetches the JSON content of a file from a GitHub Gist."""
