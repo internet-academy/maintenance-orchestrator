@@ -256,7 +256,8 @@ class GitHubSpecialist:
                 
                 for item in items:
                     content = item.get("content")
-                    if not content or content.get("closed") is True: continue
+                    # A task is active if it's NOT closed and NOT archived
+                    if not content or content.get("closed") is True or item.get("isArchived") is True: continue
                     
                     assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", []) if a.get("login")]
                     if github_username.lower() not in assignees: continue
@@ -268,14 +269,15 @@ class GitHubSpecialist:
                         field_data = fv.get("field", {})
                         if not field_data: continue
                         field_name = field_data.get("name")
+                        val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
+                        
                         if field_name and "Hours" in field_name:
                             hours = float(fv.get("number") or fv.get("text") or 0.0)
-                        if field_name == "Status" and fv.get("name") == "Done":
+                        if field_name == "Status" and val == "Done":
                             is_done = True
                     
                     if not is_done:
-                        content_id = content['id']
-                        unique_tasks[content_id] = max(unique_tasks.get(content_id, 0.0), hours)
+                        unique_tasks[content['id']] = max(unique_tasks.get(content['id'], 0.0), hours)
             except Exception as e:
                 print(f"DEBUG: Failed to fetch items for project {p_num}: {e}")
                 continue
