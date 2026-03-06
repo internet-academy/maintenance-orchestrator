@@ -282,21 +282,71 @@ class GitHubSpecialist:
 
         return sum(unique_tasks.values())
 
-    def get_child_issues_status(self, parent_title):
-        query = """
-        query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes {
-          fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } 
-          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } }
-          content { ... on Issue { state } }
-        } } } } }
+    def get_full_active_tasks(self):
+        """Fetches detailed data for all active tasks across all org projects."""
+        query_projects = """
+        query($org: String!) { organization(login: $org) { projectsV2(first: 20) { nodes { number } } } }
         """
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
-        items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-        children_found = 0
-        children_closed = 0
-        for item in items:
-            fields = {fv.get('field', {}).get('name'): (fv.get('text') or fv.get('name')) for fv in item.get('fieldValues', {}).get('nodes', [])}
-            if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
-                children_found += 1
-                if item.get('content', {}).get('state') == 'CLOSED': children_closed += 1
-        return children_found > 0 and children_found == children_closed
+        resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
+        project_nums = [p['number'] for p in resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])]
+
+        active_tasks = []
+        unique_ids = set()
+
+        for p_num in project_nums:
+            query_items = """
+            query($org: String!, $number: Int!) {
+              organization(login: $org) {
+                projectV2(number: $number) {
+                  items(first: 100) {
+                    nodes {
+                      fieldValues(first: 20) {
+                        nodes {
+                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } }
+                        }
+                      }
+                      content {
+                        ... on Issue { id number title assignees(first: 1) { nodes { login } } closed url }
+                        ... on PullRequest { id number title assignees(first: 1) { nodes { login } } closed url }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """
+            resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num}})
+            items = resp_items.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+            if not items: continue
+
+            for item in items:
+                content = item.get("content")
+                if not content or content.get("closed") is True: continue
+                if content['id'] in unique_ids: continue
+
+                fields = {}
+                for fv in item.get("fieldValues", {}).get("nodes", []):
+                    name = fv.get("field", {}).get("name")
+                    val = fv.get("number") or fv.get("text") or fv.get("name") or fv.get("date")
+                    if name: fields[name] = val
+                
+                # We only want Parent tasks for the daily summary
+                if fields.get("Level") == "Child": continue
+
+                active_tasks.append({
+                    "id": content['id'],
+                    "number": content['number'],
+                    "title": content['title'],
+                    "url": content['url'],
+                    "assignee": content.get("assignees", {}).get("nodes", [{}])[0].get("login"),
+                    "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
+                    "start_date": fields.get("Start date"),
+                    "end_date": fields.get("End date"),
+                    "status": fields.get("Status")
+                })
+                unique_ids.add(content['id'])
+        
+        return active_tasks
