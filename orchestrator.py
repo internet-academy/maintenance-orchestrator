@@ -120,6 +120,7 @@ class Orchestrator:
         print("--------------------------------------------\n")
 
         try:
+            # 1. Sync GitHub status BACK to Sheet
             tasks = self.ingestor.get_live_tasks()
             if self.git_sync:
                 sync_stats = self.git_sync.scan_and_sync(tasks)
@@ -128,15 +129,16 @@ class Orchestrator:
                     self.stats["healed_links"] += sync_stats.get("healed_links", 0)
                     self.stats["date_syncs"] += sync_stats.get("date_migrations", 0)
 
+            # 2. Process NEW Maintenance Tasks
             for task in tasks:
                 self.process_task(task)
                 time.sleep(1 if self.dry_run else 2)
             
+            # 3. Process NEW Development Requests
+            self.process_dev_requests()
+
             if any(v > 0 for v in self.stats.values()):
                 self._send_sync_report()
-
-            # 3. Process NEW Development Requests (Numeric Sheets)
-            self.process_dev_requests()
 
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
@@ -233,37 +235,27 @@ class Orchestrator:
             for task in dev_tasks:
                 current_hash = hashlib.sha256(task['content'].encode()).hexdigest()
                 state_key = f"DEV_{task['id']}"
-                
-                if self.state.get(state_key) == current_hash:
-                    continue
+                if self.state.get(state_key) == current_hash: continue
                     
                 full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
-                priority = self._detect_priority(task['content'])
-                summary = f"[NEW DEV] {ai_summary} ({romaji_name} - #{task['id']})"
+                dev_title = task['title'] if len(task['title']) > 5 else ai_summary
+                summary = f"[NEW DEV] {dev_title} ({romaji_name} - #{task['id']})"
                 
                 if self.dry_run:
                     print(f"\n[DRY RUN] NEW DEVELOPMENT PLAN for Sheet {task['id']}:")
                     print(f"  - Parent Issue:  {summary}")
                     print(f"  - Sub-Issue:     Understand the request: {ai_summary}")
-                    print(f"  - Labels:        ['staff-report', 'new-development']")
-                    print(f"  - Project 3:     Tagged as 'New Development' (ID: {self.gh_specialist.projects[3]['options']['project_new_dev']})")
-                    print(f"  - Project 4:     Initial Status: To Triage, Level: Parent/Child")
-                    print(f"  - Description Preview (English):\n{full_desc.split('## 📄 Source Content')[0]}\n")
+                    print(f"  - Description Preview:\n{full_desc.split('## 📄 Source Content')[0]}\n")
                     continue
                     
                 try:
-                    # Phase 1: Parent Issue
-                    issue = self.gh_specialist.create_issue(
-                        repo="member", title=summary, body=full_desc, assignee=None, labels=["staff-report", "new-development"]
-                    )
+                    # Phase 1: Parent
+                    issue = self.gh_specialist.create_issue(repo="member", title=summary, body=full_desc, assignee=None, labels=["staff-report", "new-development"])
                     issue_url = issue['html_url']
                     p_node = issue['node_id']
-                    
-                    # Link to Projects
                     item_p4 = self.gh_specialist.add_to_project(p_node, 4)
                     item_p3 = self.gh_specialist.add_to_project(p_node, 3)
                     
-                    # Set tags
                     self.gh_specialist.update_field(3, item_p3, 'project', self.gh_specialist.projects[3]['options']['project_new_dev'], is_option=True)
                     self.gh_specialist.update_field(4, item_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
                     self.gh_specialist.update_field(4, item_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
@@ -279,15 +271,11 @@ class Orchestrator:
                     # Write-back
                     self.ingestor.write_dev_ticket(task['sheet_name'], issue_url)
                     self.state[state_key] = current_hash
-                    print(f"SUCCESS: Created {issue_url}")
-                    
                     self.stats["new_tasks"] += 1
+                    print(f"SUCCESS: Created {issue_url}")
                     time.sleep(2)
-                    
-                except Exception as e:
-                    print(f"ERROR: Failed to process dev request {task['id']}: {e}")
-        except Exception as e:
-            print(f"ERROR: Dev request scan failed: {e}")
+                except Exception as e: print(f"ERROR: Failed to process dev request {task['id']}: {e}")
+        except Exception as e: print(f"ERROR: Dev request scan failed: {e}")
 
     def _find_best_dev(self, hours):
         team_options = []
@@ -308,6 +296,9 @@ class Orchestrator:
         romaji_name = self.name_mapping.get(task['requester'], task['requester'])
         row = task.get('row_index', 0) + 1
         sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit?gid={GID}#gid={GID}&range=B{row}:C{row}"
+        if task.get('sheet_name'):
+             sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit#gid=0"
+        
         description = f"ID: {task['id']}\nSheet Link: {sheet_link}\n\n"
         is_fallback = en_translation.strip() == task['content'].strip()
         if is_fallback:
