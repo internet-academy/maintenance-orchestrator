@@ -34,9 +34,10 @@ class Orchestrator:
         self.gemini_key = os.getenv('GEMINI_API_KEY')
         self.github_token = os.getenv('GITHUB_TOKEN')
         
-        self.state_file = "sync_state.json"
-        self.state = self._load_state()
-
+        # State tracking via GitHub Gist (resilient against merge conflicts)
+        self.gist_id = os.getenv('STATE_GIST_ID', '50a6b0cb6b461053f0aeb5d4d45fad94')
+        self.state_filename = "sync_state.json"
+        
         if self.gemini_key:
             self.client = genai.Client(api_key=self.gemini_key)
             self.model_name = 'gemini-flash-latest'
@@ -45,6 +46,12 @@ class Orchestrator:
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.gh_specialist = GitHubSpecialist(self.github_token, dry_run=self.dry_run)
+        
+        # Load State from Gist
+        print(f"ORCHESTRATOR: Loading state from Gist {self.gist_id}...")
+        self.state = self.gh_specialist.get_gist_content(self.gist_id, self.state_filename) or {}
+        if not self.state:
+            print("WARNING: Gist state is empty or missing. Falling back to empty map.")
         
         if self.github_token:
             self.git_sync = GitSync(self.github_token, self.ingestor, dry_run=self.dry_run)
@@ -85,15 +92,8 @@ class Orchestrator:
 
         self.detailed_audit_shown = set()
 
-    def _load_state(self):
-        if os.path.exists(self.state_file):
-            try:
-                with open(self.state_file, 'r') as f: return json.load(f)
-            except: return {}
-        return {}
-
     def _save_state(self):
-        with open(self.state_file, 'w') as f: json.dump(self.state, f, indent=2)
+        self.gh_specialist.update_gist(self.gist_id, self.state_filename, self.state)
 
     def _get_task_hash(self, task):
         content = f"{task['content']}|{task.get('estimated_hours', 0)}"
