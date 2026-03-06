@@ -451,11 +451,19 @@ class Orchestrator:
             self._post_to_chat(full_report)
 
     def _post_to_chat(self, text):
-        if not self.chat_webhook: return
+        if not self.chat_webhook: 
+            print("DEBUG: No webhook configured.")
+            return
         try:
             import requests
-            requests.post(self.chat_webhook, json={"text": text})
-        except: pass
+            print(f"DEBUG: Posting to webhook (length: {len(text)})...")
+            r = requests.post(self.chat_webhook, json={"text": text})
+            if r.status_code != 200:
+                print(f"WEBHOOK ERROR: {r.status_code} - {r.text}")
+            else:
+                print("WEBHOOK SUCCESS: Message delivered.")
+        except Exception as e:
+            print(f"WEBHOOK EXCEPTION: {e}")
 
 if __name__ == "__main__":
     Orchestrator().run()
