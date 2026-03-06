@@ -208,9 +208,13 @@ class CloudIngestor:
         # 1. Update individual sheet (Row 83)
         try:
             ws = workbook.worksheet(sheet_name)
+            # Ensure sheet has at least 85 rows
+            if ws.row_count < 85:
+                ws.add_rows(85 - ws.row_count)
             ws.update_cell(83, 1, "GitHub Ticket:")
             ws.update_cell(83, 4, ticket_url)
-        except: pass
+        except Exception as e:
+            print(f"WARNING: Could not write ticket to sheet {sheet_name}: {e}")
         
         # 2. Update Master List (Col 15)
         try:
