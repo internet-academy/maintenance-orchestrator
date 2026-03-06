@@ -3,6 +3,7 @@ import json
 import hashlib
 import re
 import time
+import logging
 from google import genai
 from dotenv import load_dotenv
 from agents.cloud_ingestor import CloudIngestor
@@ -10,6 +11,14 @@ from agents.github_specialist import GitHubSpecialist
 from agents.load_balancer import DeveloperTimeline
 from agents.git_sync import GitSync
 from datetime import datetime, timedelta
+
+# Configure Structured Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env
 load_dotenv()
@@ -23,7 +32,7 @@ class Orchestrator:
             self.dry_run = dry_run
             
         if self.dry_run:
-            print("!!! RUNNING IN DRY RUN MODE - NO API MUTATIONS WILL OCCUR !!!")
+            logger.info("!!! RUNNING IN DRY RUN MODE - NO API MUTATIONS WILL OCCUR !!!")
         
         self.google_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
         if self.google_json and os.path.exists(self.google_json):
