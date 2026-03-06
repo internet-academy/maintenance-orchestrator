@@ -77,19 +77,29 @@ class GitSync:
                 # 6. HEALING & CASCADING
                 try:
                     parent_title = gh_data.get('Title')
-                    # Search for child issues with this parent number in title
                     child_search_query = f'repo:{self.gh_specialist.org}/member "Sub-issue for #{issue_num}" is:open'
                     search_results = self.gh_client.search_issues(query=child_search_query)
                     
                     for child in search_results:
                         if f"Sub-issue for #{issue_num}" in child.title:
-                            # Native Link Healing
                             print(f"    - HEALING: Natively linking Child #{child.number} to Parent #{issue_num}")
+                            
+                            # ROBUST LINK: Re-open parent if closed (linking requires parent to be open)
+                            repo_obj = self.gh_client.get_repo(f"{self.gh_specialist.org}/member")
+                            parent_issue_obj = repo_obj.get_issue(issue_num)
+                            
+                            was_closed = parent_issue_obj.state == "closed"
+                            if was_closed:
+                                parent_issue_obj.edit(state="open")
+                            
                             self.gh_specialist.link_subissue(
                                 self.gh_specialist.get_issue_node_id("member", issue_num),
                                 child.node_id
                             )
                             
+                            if was_closed:
+                                parent_issue_obj.edit(state="closed")
+
                             # STATUS CASCADING: If Parent is Done, close the sub-issue
                             if gh_status == "Done":
                                 print(f"    - CASCADING: Closing sub-issue #{child.number} because Parent #{issue_num} is Done.")
