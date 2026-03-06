@@ -350,3 +350,22 @@ class GitHubSpecialist:
                 unique_ids.add(content['id'])
         
         return active_tasks
+
+    def get_child_issues_status(self, parent_title):
+        query = """
+        query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes {
+          fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } 
+          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } }
+          content { ... on Issue { state } }
+        } } } } }
+        """
+        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
+        items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+        children_found = 0
+        children_closed = 0
+        for item in items:
+            fields = {fv.get('field', {}).get('name'): (fv.get('text') or fv.get('name')) for fv in item.get('fieldValues', {}).get('nodes', [])}
+            if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
+                children_found += 1
+                if item.get('content', {}).get('state') == 'CLOSED': children_closed += 1
+        return children_found > 0 and children_found == children_closed

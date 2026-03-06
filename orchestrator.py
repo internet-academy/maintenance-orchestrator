@@ -404,19 +404,51 @@ class Orchestrator:
         else:
             self._post_to_chat(msg)
 
-    def _send_daily_report(self, all_tasks):
-        today_str = datetime.now().strftime("%Y%m%d")
-        full_report = f"📅 *Daily Report {today_str}*\n________________________________\n\n"
+    def _send_daily_report(self, unused_all_tasks):
+        """Aggregates all open parent tasks from GitHub into a consolidated daily report."""
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. Fetch LIVE data from GitHub
+        print("REPORT: Fetching live task data from GitHub for Daily Report...")
+        active_tasks = self.gh_specialist.get_full_active_tasks()
+        
+        # 2. Group by PIC
+        # Map GitHub login back to Human Name for chat_ids lookup
+        login_to_name = {v.lower(): k for k, v in self.developer_map.items()}
+        
         report_data = {}
-        for task in all_tasks:
-            pic_name = task.get('pic')
-            if not pic_name or "complete" in task.get('current_sheet_status', '').lower(): continue
+        for task in active_tasks:
+            login = (task['assignee'] or "unassigned").lower()
+            pic_name = login_to_name.get(login, "Unassigned")
+            
             if pic_name not in report_data: report_data[pic_name] = []
-            report_data[pic_name].append(f"• {task.get('content')[:50]}")
-        for name, tasks in report_data.items():
-            full_report += f"*{name}*\n" + "\n".join(tasks) + "\n\n"
-        if not report_data: full_report += "✅ No open tasks!"
-        self._post_to_chat(full_report)
+            
+            date_str = f"[{task['start_date']} → {task['end_date']}]" if task['start_date'] else "[No Dates]"
+            proj_tag = f"*{task['project_tag']}*"
+            report_data[pic_name].append(f"• {proj_tag} {task['title']} {date_str}")
+
+        # 3. Build the Message
+        full_report = f"📅 *Daily Status Report ({today_str})*\n"
+        full_report += "________________________________\n\n"
+
+        if not report_data:
+            full_report += "✅ No active parent tasks found across all projects!"
+        else:
+            # Sort by PIC to keep report consistent
+            for name in sorted(report_data.keys()):
+                tasks = report_data[name]
+                chat_id = self.chat_ids.get(name, name)
+                # If chat_id is numeric, use the @mention format
+                mention = f"<users/{chat_id}>" if chat_id.replace(".","").isdigit() else f"*{name}*"
+                
+                full_report += f"{mention}\n" + "\n".join(tasks) + "\n\n"
+
+        # 4. Post to Chat
+        print(f"REPORT: Sending consolidated Daily Report to Google Chat...")
+        if self.dry_run:
+            print(f"[DRY RUN] Would post daily report:\n{full_report}")
+        else:
+            self._post_to_chat(full_report)
 
     def _post_to_chat(self, text):
         if not self.chat_webhook: return
