@@ -143,9 +143,13 @@ class GitHubSpecialist:
                 if content['id'] in unique_ids: continue
                 fields = {fv['field']['name']: (fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')) for fv in item['fieldValues']['nodes'] if fv.get('field')}
                 if fields.get('Level') == 'Child': continue
+                # Extract Assignee Login safely
+                assignees = content.get('assignees', {}).get('nodes', [])
+                login = assignees[0].get('login') if assignees else None
+
                 active_tasks.append({
                     "id": content['id'], "number": content['number'], "title": content['title'], "url": content['url'],
-                    "assignee": content.get('assignees', {}).get('nodes', [{}])[0].get('login'),
+                    "assignee": login,
                     "project_tag": fields.get('Portfolio Project') or fields.get('project') or data.get('title'),
                     "start_date": fields.get('Start date'), "end_date": fields.get('End date'), "hours": float(fields.get('Assigned Hours') or 0.0)
                 })
