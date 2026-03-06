@@ -48,10 +48,8 @@ class Orchestrator:
         self.state_filename = "sync_state.json"
         
         if self.gemini_key:
-            # Use stable v1 API configuration
-            from google.genai import types
-            self.client = genai.Client(api_key=self.gemini_key, http_options={'api_version': 'v1'})
-            self.model_name = 'gemini-2.0-flash'
+            self.client = genai.Client(api_key=self.gemini_key)
+            self.model_name = 'gemini-flash-latest'
         else:
             self.client = None
 
