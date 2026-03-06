@@ -298,29 +298,35 @@ class GitHubSpecialist:
         return sum(unique_tasks.values())
 
     def get_full_active_tasks(self):
-        """Fetches detailed data for all active tasks across all org projects with full pagination."""
-        all_project_nums = []
+        """Fetches detailed data for all active tasks across all org projects with robust discovery."""
+        # 1. Start with known project numbers
+        all_project_nums = [3, 4]
+        
+        # 2. Attempt to discover more projects dynamically
         cursor = None
-        while True:
-            query_projects = """
-            query($org: String!, $cursor: String) {
-              organization(login: $org) {
-                projectsV2(first: 100, after: $cursor) {
-                  pageInfo { hasNextPage endCursor }
-                  nodes { number title }
+        try:
+            while True:
+                query_projects = """
+                query($org: String!, $cursor: String) {
+                  organization(login: $org) {
+                    projectsV2(first: 100, after: $cursor) {
+                      pageInfo { hasNextPage endCursor }
+                      nodes { number }
+                    }
+                  }
                 }
-              }
-            }
-            """
-            resp = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org, "cursor": cursor}})
-            data = resp.json().get('data', {}).get('organization', {}).get('projectsV2', {})
-            nodes = data.get('nodes', [])
-            for p in nodes:
-                if p.get('number'):
-                    all_project_nums.append(p['number'])
-            
-            if not data.get('pageInfo', {}).get('hasNextPage'): break
-            cursor = data['pageInfo']['endCursor']
+                """
+                resp = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org, "cursor": cursor}})
+                data = resp.json().get('data', {}).get('organization', {}).get('projectsV2', {})
+                nodes = data.get('nodes', [])
+                for p in nodes:
+                    if p.get('number') and p['number'] not in all_project_nums:
+                        all_project_nums.append(p['number'])
+                
+                if not data.get('pageInfo', {}).get('hasNextPage'): break
+                cursor = data['pageInfo']['endCursor']
+        except Exception as e:
+            print(f"DEBUG: Dynamic project discovery failed (using fallbacks): {e}")
 
         print(f"DEBUG: Scanning {len(all_project_nums)} projects for active tasks...")
         active_tasks = []
