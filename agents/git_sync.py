@@ -100,17 +100,19 @@ class GitSync:
                 try:
                     parent_title = gh_data.get('Title')
                     if not self.gh_specialist.get_child_issues_status(parent_title):
-                        print(f"  - HEALING: Searching for orphaned sub-issues for #{issue_num}...")
-                        query = f'repo:{self.gh_specialist.org}/member \"Sub-issue for #{issue_num}\" is:open'
-                        search_url = f"https://api.github.com/search/issues?q={query}"
-                        search_resp = requests.get(search_url, headers=self.gh_specialist.headers).json()
+                        # Use the global search method which supports the 'q' syntax correctly
+                        child_search_query = f'repo:{self.gh_specialist.org}/member "Sub-issue for #{issue_num}" is:open'
+                        search_results = self.gh_client.search_issues(query=child_search_query)
                         
-                        for item in search_resp.get('items', []):
-                            child_node_id = item['node_id']
-                            parent_node_id = self.gh_specialist.get_issue_node_id("member", issue_num)
-                            print(f"    - RE-LINKING: Child #{item['number']} to Parent #{issue_num}")
-                            self.gh_specialist.link_subissue(parent_node_id, child_node_id)
-                            stats["healed_links"] += 1
+                        for child in search_results:
+                            # Verify double-check title to be absolute
+                            if f"Sub-issue for #{issue_num}" in child.title:
+                                print(f"    - HEALING: Re-linking Child #{child.number} to Parent #{issue_num}")
+                                self.gh_specialist.link_subissue(
+                                    self.gh_specialist.get_issue_node_id("member", issue_num),
+                                    child.node_id
+                                )
+                                stats["healed_links"] += 1
                 except Exception as e:
                     print(f"DEBUG: Hierarchy healing failed for #{issue_num}: {e}")
 
