@@ -1,3 +1,6 @@
+!package.json
+!sync_state.json
+*.json
 *.pyc
 .env
 .sync-live
