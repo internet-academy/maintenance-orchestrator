@@ -134,8 +134,12 @@ class Orchestrator:
                 self.process_task(task)
                 time.sleep(1 if self.dry_run else 2)
             
-            # 3. Process NEW Development Requests
-            self.process_dev_requests()
+            # 3. Process NEW Development Requests (Numeric Sheets) - Gated by Feature Toggle
+            enable_dev_scan = os.getenv('ENABLE_NEW_DEV_SCAN', 'False').lower() in ['true', '1', 't', 'y', 'yes']
+            if enable_dev_scan:
+                self.process_dev_requests()
+            else:
+                print("\nSKIP: New Development scanning is currently DISABLED (ENABLE_NEW_DEV_SCAN=False)")
 
             if any(v > 0 for v in self.stats.values()):
                 self._send_sync_report()
