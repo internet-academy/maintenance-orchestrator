@@ -36,6 +36,10 @@ class GitSync:
             try:
                 gh_data = self.gh_specialist.get_project_item_data(issue_num, project_number=4)
                 if not gh_data: continue
+                
+                gh_status = gh_data.get('Status')
+                sheet_status = task.get('current_sheet_status', '')
+
                 # --- PR DETECTION ENGINE ---
                 has_active_pr = False
                 has_merged_pr = False
