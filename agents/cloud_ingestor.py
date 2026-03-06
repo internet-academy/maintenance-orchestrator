@@ -182,19 +182,23 @@ class CloudIngestor:
                 if existing_ticket and "github.com" in str(existing_ticket):
                     continue
                 
-                # 3. Pull Metadata
-                title = ws.cell(4, 4).value
+                # 3. Pull Metadata (Explicitly from specific cells)
+                raw_title = ws.cell(4, 4).value
                 background = ws.cell(7, 4).value
                 details = ws.cell(11, 4).value
                 requester = ws.cell(2, 4).value
                 
+                # Cleanup title: if it's empty or just a header, use a fallback
+                title = raw_title if raw_title and len(raw_title) > 2 else f"Development Request {ws.title}"
+                
                 dev_tasks.append({
                     "id": ws.title,
                     "title": title,
-                    "content": f"### Background\n{background}\n\n### Details\n{details}",
+                    "content": f"### 📖 Background\n{background}\n\n### 📝 Request Details\n{details}",
                     "requester": requester,
                     "sheet_name": ws.title,
-                    "type": "NEW_DEV"
+                    "type": "NEW_DEV",
+                    "gid": ws.id
                 })
                 # Prevent 429
                 import time
