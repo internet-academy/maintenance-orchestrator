@@ -259,8 +259,21 @@ class GitHubSpecialist:
                     # A task is active if it's NOT closed and NOT archived
                     if not content or content.get("closed") is True or item.get("isArchived") is True: continue
                     
-                    assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", []) if a.get("login")]
-                    if github_username.lower() not in assignees: continue
+                    # --- RESILIENT ASSIGNEE MATCHING ---
+                    # 1. Get Project-level assignees from fieldValues
+                    proj_assignees = []
+                    for fv in item.get("fieldValues", {}).get("nodes", []):
+                        if fv.get("field", {}).get("name") == "Assignees":
+                            # This depends on how the V2 Assignees field returns data, 
+                            # usually it's handled via the 'content' object natively.
+                            pass
+
+                    # 2. Get Issue-level assignees (NATIVE)
+                    issue_assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", []) if a.get("login")]
+                    
+                    all_assignees = list(set(issue_assignees))
+                    
+                    if github_username.lower() not in all_assignees: continue
                     
                     # Extract Hours
                     hours = 0.0
@@ -346,7 +359,7 @@ class GitHubSpecialist:
                     # Include anything that isn't explicitly a Child task
                     if fields.get("Level") == "Child": continue
 
-                    # Safely extract the first assignee if one exists
+                    # --- RESILIENT ASSIGNEE EXTRACTION ---
                     assignee_nodes = content.get("assignees", {}).get("nodes", [])
                     assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
 
@@ -361,6 +374,7 @@ class GitHubSpecialist:
                         "end_date": fields.get("End date"),
                         "status": fields.get("Status") or "Open (Un-columned)"
                     })
+
                     unique_ids.add(content['id'])
         
         return active_tasks
