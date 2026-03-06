@@ -301,13 +301,15 @@ class GitHubSpecialist:
                   items(first: 100) {
                     nodes {
                       fieldValues(first: 20) {
-                        nodes {
-                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } }
-                        }
+                      nodes {
+                        ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } }
+                        ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } }
+                        ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } }
+                        ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } }
+                        ... on ProjectV2ItemFieldIterationValue { title field { ... on ProjectV2Field { name id } } }
                       }
+                      }
+
                       content {
                         ... on Issue { id number title assignees(first: 1) { nodes { login } } closed url }
                         ... on PullRequest { id number title assignees(first: 1) { nodes { login } } closed url }
@@ -329,9 +331,10 @@ class GitHubSpecialist:
 
                 fields = {}
                 for fv in item.get("fieldValues", {}).get("nodes", []):
-                    name = fv.get("field", {}).get("name")
-                    val = fv.get("number") or fv.get("text") or fv.get("name") or fv.get("date")
-                    if name: fields[name] = val
+                    field_data = fv.get("field", {})
+                    field_name = field_data.get("name")
+                    val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
+                    if field_name: fields[field_name] = val
                 
                 # Include anything that isn't explicitly a Child task
                 if fields.get("Level") == "Child": continue
