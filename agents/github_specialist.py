@@ -298,84 +298,93 @@ class GitHubSpecialist:
         return sum(unique_tasks.values())
 
     def get_full_active_tasks(self):
-        """Fetches detailed data for all active tasks across all org projects."""
+        """Fetches detailed data for all active tasks across all org projects with pagination."""
         query_projects = """
         query($org: String!) { organization(login: $org) { projectsV2(first: 20) { nodes { number } } } }
         """
         resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
-        project_nums = [p['number'] for p in resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])]
+        project_nodes = resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])
+        project_nums = [p['number'] for p in project_nodes if p.get('number')]
 
         active_tasks = []
         unique_ids = set()
 
         for p_num in project_nums:
-            query_items = """
-            query($org: String!, $number: Int!) {
-              organization(login: $org) {
-                projectV2(number: $number) {
-                  items(first: 100) {
-                    nodes {
-                      fieldValues(first: 20) {
-                      nodes {
-                        ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } }
-                        ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } }
-                        ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } }
-                        ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } }
-                        ... on ProjectV2ItemFieldIterationValue { title field { ... on ProjectV2Field { name id } } }
-                      }
-                      }
-
-                      content {
-                        ... on Issue { id number title assignees(first: 1) { nodes { login } } closed url }
-                        ... on PullRequest { id number title assignees(first: 1) { nodes { login } } closed url }
+            cursor = None
+            while True:
+                query_items = """
+                query($org: String!, $number: Int!, $cursor: String) {
+                  organization(login: $org) {
+                    projectV2(number: $number) {
+                      items(first: 100, after: $cursor) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                          id
+                          isArchived
+                          fieldValues(first: 20) {
+                            nodes {
+                              ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } }
+                              ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } }
+                              ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } }
+                              ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } }
+                              ... on ProjectV2ItemFieldIterationValue { title field { ... on ProjectV2Field { name id } } }
+                            }
+                          }
+                          content {
+                            ... on Issue { id number title assignees(first: 5) { nodes { login } } closed url }
+                            ... on PullRequest { id number title assignees(first: 5) { nodes { login } } closed url }
+                            ... on DraftIssue { id title assignees(first: 5) { nodes { login } } }
+                          }
+                        }
                       }
                     }
                   }
                 }
-              }
-            }
-            """
-            resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num}})
-            items = resp_items.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-            if not items: continue
+                """
+                try:
+                    resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num, "cursor": cursor}})
+                    items_json = resp_items.json()
+                    items_data = items_json.get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {})
+                    nodes = items_data.get('nodes', [])
+                    if not nodes: break
 
-            for item in items:
-                content = item.get("content")
-                # A task is active if it's NOT closed and NOT archived
-                if not content or content.get("closed") is True or item.get("isArchived") is True: continue
-                if content['id'] in unique_ids: continue
+                    for item in nodes:
+                        content = item.get("content")
+                        if not content or content.get("closed") is True or item.get("isArchived") is True: continue
+                        
+                        content_id = content.get('id')
+                        if not content_id or content_id in unique_ids: continue
 
-                fields = {}
-                for fv in item.get("fieldValues", {}).get("nodes", []):
-                    field_data = fv.get("field", {})
-                    field_name = field_data.get("name")
-                    val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
-                    if field_name: fields[field_name] = val
-                
-                # Check if Status is explicitly 'Done' (if column is set)
-                is_done = fields.get("Status") == "Done"
-                
-                if not is_done:
-                    # Include anything that isn't explicitly a Child task
-                    if fields.get("Level") == "Child": continue
+                        fields = {}
+                        for fv in item.get("fieldValues", {}).get("nodes", []):
+                            field_data = fv.get("field", {})
+                            field_name = field_data.get("name")
+                            val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
+                            if field_name: fields[field_name] = val
+                        
+                        if fields.get("Level") == "Child": continue
 
-                    # --- RESILIENT ASSIGNEE EXTRACTION ---
-                    assignee_nodes = content.get("assignees", {}).get("nodes", [])
-                    assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
+                        assignee_nodes = content.get("assignees", {}).get("nodes", [])
+                        assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
 
-                    active_tasks.append({
-                        "id": content['id'],
-                        "number": content['number'],
-                        "title": content['title'],
-                        "url": content['url'],
-                        "assignee": assignee_login,
-                        "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
-                        "start_date": fields.get("Start date"),
-                        "end_date": fields.get("End date"),
-                        "status": fields.get("Status") or "Open (Un-columned)"
-                    })
+                        active_tasks.append({
+                            "id": content_id,
+                            "number": content.get('number', 'DRAFT'),
+                            "title": content.get('title'),
+                            "url": content.get('url', '#'),
+                            "assignee": assignee_login,
+                            "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
+                            "start_date": fields.get("Start date"),
+                            "end_date": fields.get("End date"),
+                            "status": fields.get("Status") or "Open"
+                        })
+                        unique_ids.add(content_id)
 
-                    unique_ids.add(content['id'])
+                    if not items_data.get('pageInfo', {}).get('hasNextPage'): break
+                    cursor = items_data['pageInfo']['endCursor']
+                except Exception as e:
+                    print(f"DEBUG: Failed to fetch items for project {p_num}: {e}")
+                    break
         
         return active_tasks
 
