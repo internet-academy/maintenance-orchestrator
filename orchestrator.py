@@ -288,6 +288,7 @@ class Orchestrator:
                 if hasattr(self.ingestor, 'write_pic'): self.ingestor.write_pic(task['anchors'], best_dev['name'])
                 if hasattr(self.ingestor, 'write_dates'): self.ingestor.write_dates(task['anchors'], start_date, end_date)
                 
+                self.stats["new_tasks"] += 1
                 self.state[issue_url] = current_hash
                 print(f"SUCCESS: Created {issue_url}")
             except Exception as e:
@@ -387,6 +388,21 @@ class Orchestrator:
             title = first_line
             
         return title, text
+
+    def _send_sync_report(self):
+        """Sends a concise action report to Google Chat."""
+        msg = "🔄 *Maintenance Sync Complete*\n"
+        msg += "________________________________\n"
+        if self.stats["new_tasks"] > 0: msg += f"• 🆕 Created *{self.stats['new_tasks']}* new reports\n"
+        if self.stats["status_syncs"] > 0: msg += f"• 🔄 Updated *{self.stats['status_syncs']}* sheet statuses\n"
+        if self.stats["date_syncs"] > 0: msg += f"• 📅 Mirrored *{self.stats['date_syncs']}* date pairs to Project 3\n"
+        if self.stats["healed_links"] > 0: msg += f"• 🩹 Healed *{self.stats['healed_links']}* sub-issue links\n"
+        
+        print(f"REPORT: Sending Sync Report to Google Chat...")
+        if self.dry_run:
+            print(f"[DRY RUN] Would post sync report:\n{msg}")
+        else:
+            self._post_to_chat(msg)
 
     def _send_daily_report(self, all_tasks):
         today_str = datetime.now().strftime("%Y%m%d")
