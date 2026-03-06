@@ -105,11 +105,30 @@ class GitHubSpecialist:
         else:
             r.raise_for_status()
 
-    def link_subissue(self, parent_item_id, parent_title):
-        """Links a child item to a parent using the Project V2 Parent Issue field."""
-        # Note: child_item_id is passed as self context if needed, but here we 
-        # need the item_id of the CHILD.
-        pass # We will use update_field(4, child_item_id, 'parent_issue', parent_title) instead.
+    def link_subissue(self, parent_node_id, child_node_id):
+        """Natively links a sub-issue to a parent issue in GitHub."""
+        if self.dry_run:
+            print(f"[DRY RUN] Would link child {child_node_id} to parent {parent_node_id}")
+            return
+
+        query = """
+        mutation($parent: ID!, $child: ID!) {
+          addSubIssue(input: {issueId: $parent, subIssueId: $child}) {
+            subIssue { id }
+          }
+        }
+        """
+        vars = {"parent": parent_node_id, "child": child_node_id}
+        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": vars})
+        # We allow for 'duplicate sub-issue' errors as they mean the link is already there
+        res_json = response.json()
+        if "errors" in res_json:
+            msg = res_json["errors"][0].get("message", "")
+            if "duplicate sub-issues" in msg:
+                return # Already linked
+            print(f"ERROR natively linking sub-issue: {res_json['errors']}")
+        else:
+            response.raise_for_status()
 
     def get_issue_node_id(self, repo, number):
         r = requests.get(f"https://api.github.com/repos/{self.org}/{repo}/issues/{number}", headers=self.headers)
