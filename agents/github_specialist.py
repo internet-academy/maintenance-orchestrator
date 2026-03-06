@@ -26,7 +26,8 @@ class GitHubSpecialist:
                     "end_date": "PVTF_lADOA1jKuM4BQoorzg-xYWs"
                 },
                 "options": {
-                    "project_maintenance": "47686791"
+                    "project_maintenance": "109c057b",
+                    "project_new_dev": "a87ad165"
                 }
             },
             4: {
@@ -55,136 +56,49 @@ class GitHubSpecialist:
         }
 
     def create_issue(self, repo, title, body, assignee=None, labels=None):
-        """Creates a GitHub Issue and optionally assigns it."""
         url = f"https://api.github.com/repos/{self.org}/{repo}/issues"
         payload = {"title": title, "body": body}
         if assignee: payload["assignees"] = [assignee]
         if labels: payload["labels"] = labels
-
         if self.dry_run:
-            print(f"[DRY RUN] Would create GitHub issue in {repo}: {title}")
-            return {"number": 2500, "html_url": f"https://github.com/{self.org}/{repo}/issues/2500", "node_id": "MOCK_NODE_ID"}
-
-        response = requests.post(url, headers=self.headers, json=payload)
-        response.raise_for_status()
-        return response.json()
+            print(f"[DRY RUN] Creating issue: {title}")
+            return {"number": 2500, "html_url": "mock_url", "node_id": "MOCK_NODE_ID"}
+        r = requests.post(url, headers=self.headers, json=payload)
+        r.raise_for_status()
+        return r.json()
 
     def add_to_project(self, node_id, project_number):
-        """Adds a content node (Issue/PR) to a specific project number."""
         project_id = self.projects[project_number]["id"]
-        if self.dry_run:
-            print(f"[DRY RUN] Would add node {node_id} to Project {project_number}")
-            return "MOCK_ITEM_ID"
-
-        query = """
-        mutation($project: ID!, $content: ID!) {
-          addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
-            item { id }
-          }
-        }
-        """
-        vars = {"project": project_id, "content": node_id}
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": vars})
-        response.raise_for_status()
-        return response.json()["data"]["addProjectV2ItemById"]["item"]["id"]
+        if self.dry_run: return "MOCK_ITEM_ID"
+        query = "mutation($project: ID!, $content: ID!) { addProjectV2ItemById(input: {projectId: $project, contentId: $content}) { item { id } } }"
+        r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"project": project_id, "content": node_id}})
+        r.raise_for_status()
+        return r.json()["data"]["addProjectV2ItemById"]["item"]["id"]
 
     def update_field(self, project_number, item_id, field_key, value, is_option=False):
-        """Updates a field in a project with explicit type handling."""
         project_id = self.projects[project_number]["id"]
         field_id = self.projects[project_number]["fields"].get(field_key)
-        if not field_id: return
-
-        if self.dry_run:
-            print(f"[DRY RUN] Project {project_number} update: {field_key} -> {value}")
-            return
-
-        # Explicit type selection based on value and field configuration
-        if is_option:
-            v_key = "singleSelectOptionId"
-            v_type = "String"
-            v_val = str(value)
-        elif "-" in str(value) and len(str(value)) == 10:
-            v_key = "date"
-            v_type = "Date"
-            v_val = str(value)
-        elif isinstance(value, (int, float)):
-            v_key = "number"
-            v_type = "Float"
-            v_val = float(value)
-        else:
-            v_key = "text"
-            v_type = "String"
-            v_val = str(value)
-
-        mutation = """
-        mutation($project: ID!, $item: ID!, $field: ID!, $value: %VAL_TYPE%!) {
-          updateProjectV2ItemFieldValue(input: {
-            projectId: $project, itemId: $item, fieldId: $field,
-            value: { %KEY%: $value }
-          }) { clientMutationId }
-        }
-        """
-        query = mutation.replace("%VAL_TYPE%", v_type).replace("%KEY%", v_key)
-        variables = {"project": project_id, "item": item_id, "field": field_id, "value": v_val}
-        
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": variables})
-        res_json = response.json()
-        if "errors" in res_json:
-            print(f"ERROR updating project {project_number} field {field_key}: {res_json['errors']}")
-        response.raise_for_status()
+        if not field_id or self.dry_run: return
+        v_key = "singleSelectOptionId" if is_option else ("date" if "-" in str(value) and len(str(value)) == 10 else ("number" if isinstance(value, (int, float)) else "text"))
+        val_type = "Float" if v_key == "number" else "String"
+        mutation = f"mutation($project: ID!, $item: ID!, $field: ID!, $value: {val_type}!) {{ updateProjectV2ItemFieldValue(input: {{ projectId: $project, itemId: $item, fieldId: $field, value: {{ {v_key}: $value }} }}) {{ clientMutationId }} }}"
+        r = requests.post(self.graphql_url, headers=self.headers, json={"query": mutation, "variables": {"project": project_id, "item": item_id, "field": field_id, "value": value if v_key == "number" else str(value)}})
+        r.raise_for_status()
 
     def link_subissue(self, parent_node_id, child_node_id):
-        """Natively links a sub-issue to a parent issue in GitHub."""
-        if self.dry_run:
-            print(f"[DRY RUN] Would link child {child_node_id} to parent {parent_node_id}")
-            return
-
-        query = """
-        mutation($parent: ID!, $child: ID!) {
-          addSubIssue(input: {issueId: $parent, subIssueId: $child}) {
-            parentIssue { id }
-          }
-        }
-        """
-        vars = {"parent": parent_node_id, "child": child_node_id}
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": vars})
-        response.raise_for_status()
+        if self.dry_run: return
+        query = "mutation($parent: ID!, $child: ID!) { addSubIssue(input: {issueId: $parent, subIssueId: $child}) { parentIssue { id } } }"
+        requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"parent": parent_node_id, "child": child_node_id}}).raise_for_status()
 
     def get_issue_node_id(self, repo, number):
-        """Fetches the global Node ID for a specific issue number."""
-        url = f"https://api.github.com/repos/{self.org}/{repo}/issues/{number}"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        return response.json()['node_id']
+        r = requests.get(f"https://api.github.com/repos/{self.org}/{repo}/issues/{number}", headers=self.headers)
+        r.raise_for_status()
+        return r.json()['node_id']
 
     def get_project_item_data(self, issue_number, project_number=4):
-        """Fetches all project field values for a specific issue number."""
-        project_id = self.projects[project_number]["id"]
-        query = """
-        query($org: String!, $project_number: Int!) {
-          organization(login: $org) {
-            projectV2(number: $project_number) {
-              items(first: 100) {
-                nodes {
-                  id
-                  fieldValues(first: 20) {
-                    nodes {
-                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } }
-                      ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } }
-                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } }
-                      ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } }
-                    }
-                  }
-                  content { ... on Issue { number assignees(first: 1) { nodes { login } } } }
-                }
-              }
-            }
-          }
-        }
-        """
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "project_number": project_number}})
-        items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-        
+        query = "query($org: String!, $number: Int!) { organization(login: $org) { projectV2(number: $number) { items(first: 100) { nodes { id fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } } ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } } ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } } } } content { ... on Issue { number assignees(first: 1) { nodes { login } } } } } } } } }"
+        r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": project_number}})
+        items = r.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
         for item in items:
             content = item.get('content')
             if content and content.get('number') == issue_number:
@@ -192,250 +106,49 @@ class GitHubSpecialist:
                 for fv in item.get('fieldValues', {}).get('nodes', []):
                     name = fv.get('field', {}).get('name')
                     val = fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')
-                    data[name] = val
+                    if name: data[name] = val
                 return data
         return None
 
     def get_active_workload(self, github_username):
-        """
-        Fetches active issues for a user across ALL projects in the organization
-        and sums their 'Assigned Hours', de-duplicating by Issue/PR ID.
-        """
-        # 1. Fetch all project numbers for the organization
-        query_projects = """
-        query($org: String!) {
-          organization(login: $org) {
-            projectsV2(first: 20) {
-              nodes { number title }
-            }
-          }
-        }
-        """
-        try:
-            resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
-            proj_json = resp_projects.json()
-            project_nodes = proj_json.get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])
-            if not project_nodes:
-                return 0.0
-            project_nums = [p['number'] for p in project_nodes if p.get('number')]
-        except Exception as e:
-            print(f"DEBUG: Failed to fetch projects: {e}")
-            return 0.0
-
-        unique_tasks = {} # content_id -> hours
-        
-        for p_num in project_nums:
-            query_items = """
-            query($org: String!, $number: Int!) {
-              organization(login: $org) {
-                projectV2(number: $number) {
-                  items(first: 100) {
-                    nodes {
-                      fieldValues(first: 20) {
-                        nodes {
-                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
-                        }
-                      }
-                      content {
-                        ... on Issue { id assignees(first: 10) { nodes { login } } closed }
-                        ... on PullRequest { id assignees(first: 10) { nodes { login } } closed }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            """
-            try:
-                resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num}})
-                items_json = resp_items.json()
-                items = items_json.get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-                if not items: continue
-                
-                for item in items:
-                    content = item.get("content")
-                    # A task is active if it's NOT closed and NOT archived
-                    if not content or content.get("closed") is True or item.get("isArchived") is True: continue
-                    
-                    # --- RESILIENT ASSIGNEE MATCHING ---
-                    # 1. Get Project-level assignees from fieldValues
-                    proj_assignees = []
-                    for fv in item.get("fieldValues", {}).get("nodes", []):
-                        if fv.get("field", {}).get("name") == "Assignees":
-                            # This depends on how the V2 Assignees field returns data, 
-                            # usually it's handled via the 'content' object natively.
-                            pass
-
-                    # 2. Get Issue-level assignees (NATIVE)
-                    issue_assignees = [a["login"].lower() for a in content.get("assignees", {}).get("nodes", []) if a.get("login")]
-                    
-                    all_assignees = list(set(issue_assignees))
-                    
-                    if github_username.lower() not in all_assignees: continue
-                    
-                    # Extract Hours
-                    hours = 0.0
-                    is_done = False
-                    for fv in item.get("fieldValues", {}).get("nodes", []):
-                        field_data = fv.get("field", {})
-                        if not field_data: continue
-                        field_name = field_data.get("name")
-                        val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
-                        
-                        if field_name and "Hours" in field_name:
-                            hours = float(fv.get("number") or fv.get("text") or 0.0)
-                        if field_name == "Status" and val == "Done":
-                            is_done = True
-                    
-                    if not is_done:
-                        unique_tasks[content['id']] = max(unique_tasks.get(content['id'], 0.0), hours)
-            except Exception as e:
-                print(f"DEBUG: Failed to fetch items for project {p_num}: {e}")
-                continue
-
-        return sum(unique_tasks.values())
+        tasks = self.get_full_active_tasks()
+        load = 0.0
+        for t in tasks:
+            if t['assignee'] and t['assignee'].lower() == github_username.lower():
+                load += t.get('hours', 0.0)
+        return load
 
     def get_full_active_tasks(self):
-        """Fetches detailed data for all active tasks across all org projects with robust discovery."""
-        # 1. Start with known project numbers
-        all_project_nums = [3, 4]
-        
-        # 2. Attempt to discover more projects dynamically
-        cursor = None
-        try:
-            while True:
-                query_projects = """
-                query($org: String!, $cursor: String) {
-                  organization(login: $org) {
-                    projectsV2(first: 100, after: $cursor) {
-                      pageInfo { hasNextPage endCursor }
-                      nodes { number }
-                    }
-                  }
-                }
-                """
-                resp = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org, "cursor": cursor}})
-                data = resp.json().get('data', {}).get('organization', {}).get('projectsV2', {})
-                nodes = data.get('nodes', [])
-                for p in nodes:
-                    if p.get('number') and p['number'] not in all_project_nums:
-                        all_project_nums.append(p['number'])
-                
-                if not data.get('pageInfo', {}).get('hasNextPage'): break
-                cursor = data['pageInfo']['endCursor']
-        except Exception as e:
-            print(f"DEBUG: Dynamic project discovery failed (using fallbacks): {e}")
-
-        print(f"DEBUG: Scanning {len(all_project_nums)} projects for active tasks...")
+        """Fetches all active tasks across projects with simplified robust logic."""
         active_tasks = []
         unique_ids = set()
-
-        for p_num in all_project_nums:
-            cursor = None
-            while True:
-                query_items = """
-                query($org: String!, $number: Int!, $cursor: String) {
-                  organization(login: $org) {
-                    projectV2(number: $number) {
-                      title
-                      items(first: 100, after: $cursor) {
-                        pageInfo { hasNextPage endCursor }
-                        nodes {
-                          id
-                          isArchived
-                          fieldValues(first: 20) {
-                            nodes {
-                              ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name id } } }
-                              ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name id } } }
-                              ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name id } } }
-                              ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name id } } }
-                              ... on ProjectV2ItemFieldIterationValue { title field { ... on ProjectV2Field { name id } } }
-                            }
-                          }
-                          content {
-                            ... on Issue { id number title assignees(first: 5) { nodes { login } } closed url }
-                            ... on PullRequest { id number title assignees(first: 5) { nodes { login } } closed url }
-                            ... on DraftIssue { id title assignees(first: 5) { nodes { login } } }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-                """
-                try:
-                    resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num, "cursor": cursor}})
-                    items_json = resp_items.json()
-                    p_data = items_json.get('data', {}).get('organization', {}).get('projectV2', {})
-                    items_data = p_data.get('items', {})
-                    nodes = items_data.get('nodes', [])
-                    if not nodes: break
-
-                    for item in nodes:
-                        content = item.get("content")
-                        # A task is active if it's NOT closed and NOT archived
-                        # Check for both Boolean and potential None values
-                        is_closed = content.get("closed") if content else False
-                        is_archived = item.get("isArchived")
-                        
-                        if not content or is_closed is True or is_archived is True: 
-                            continue
-                        
-                        content_id = content.get('id')
-                        if not content_id or content_id in unique_ids: continue
-
-                        fields = {}
-                        for fv in item.get("fieldValues", {}).get("nodes", []):
-                            field_data = fv.get("field", {})
-                            field_name = field_data.get("name")
-                            val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
-                            if field_name: fields[field_name] = val
-                        
-                        # Skip if explicitly marked as Child
-                        if fields.get("Level") == "Child": continue
-
-                        # Extract Assignee (Optional - don't skip if empty)
-                        assignee_nodes = content.get("assignees", {}).get("nodes", [])
-                        assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
-
-                        active_tasks.append({
-                            "id": content_id,
-                            "number": content.get('number', 'DRAFT'),
-                            "title": content.get('title'),
-                            "url": content.get('url', '#'),
-                            "assignee": assignee_login,
-                            "project_tag": fields.get("Portfolio Project") or fields.get("project") or p_data.get('title', 'Maintenance'),
-                            "start_date": fields.get("Start date"),
-                            "end_date": fields.get("End date"),
-                            "status": fields.get("Status") or "Open"
-                        })
-                        unique_ids.add(content_id)
-
-                    if not items_data.get('pageInfo', {}).get('hasNextPage'): break
-                    cursor = items_data['pageInfo']['endCursor']
-                except Exception as e:
-                    print(f"DEBUG: Failed to fetch items for project {p_num}: {e}")
-                    break
-        
+        for p_num in [3, 4]:
+            query = "query($org: String!, $number: Int!) { organization(login: $org) { projectV2(number: $number) { title items(first: 100) { nodes { isArchived fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } } } } content { ... on Issue { id number title url closed assignees(first: 1) { nodes { login } } } } } } } } }"
+            r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": p_num}})
+            data = r.json().get('data', {}).get('organization', {}).get('projectV2', {})
+            for item in data.get('items', {}).get('nodes', []):
+                content = item.get('content')
+                if not content or content.get('closed') or item.get('isArchived'): continue
+                if content['id'] in unique_ids: continue
+                fields = {fv['field']['name']: (fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')) for fv in item['fieldValues']['nodes'] if fv.get('field')}
+                if fields.get('Level') == 'Child': continue
+                active_tasks.append({
+                    "id": content['id'], "number": content['number'], "title": content['title'], "url": content['url'],
+                    "assignee": content.get('assignees', {}).get('nodes', [{}])[0].get('login'),
+                    "project_tag": fields.get('Portfolio Project') or fields.get('project') or data.get('title'),
+                    "start_date": fields.get('Start date'), "end_date": fields.get('End date'), "hours": float(fields.get('Assigned Hours') or 0.0)
+                })
+                unique_ids.add(content['id'])
         return active_tasks
 
     def get_child_issues_status(self, parent_title):
-        query = """
-        query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes {
-          fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } 
-          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } }
-          content { ... on Issue { state } }
-        } } } } }
-        """
-        response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
-        items = response.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
-        children_found = 0
-        children_closed = 0
+        query = "query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes { fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } } content { ... on Issue { state } } } } } } }"
+        r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
+        items = r.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+        found = closed = 0
         for item in items:
-            fields = {fv.get('field', {}).get('name'): (fv.get('text') or fv.get('name')) for fv in item.get('fieldValues', {}).get('nodes', [])}
+            fields = {fv['field']['name']: (fv.get('text') or fv.get('name')) for fv in item['fieldValues']['nodes'] if fv.get('field')}
             if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
-                children_found += 1
-                if item.get('content', {}).get('state') == 'CLOSED': children_closed += 1
-        return children_found > 0 and children_found == children_closed
+                found += 1
+                if item.get('content', {}).get('state') == 'CLOSED': closed += 1
+        return found > 0 and found == closed
