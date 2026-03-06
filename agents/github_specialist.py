@@ -298,24 +298,42 @@ class GitHubSpecialist:
         return sum(unique_tasks.values())
 
     def get_full_active_tasks(self):
-        """Fetches detailed data for all active tasks across all org projects with pagination."""
-        query_projects = """
-        query($org: String!) { organization(login: $org) { projectsV2(first: 20) { nodes { number } } } }
-        """
-        resp_projects = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org}})
-        project_nodes = resp_projects.json().get('data', {}).get('organization', {}).get('projectsV2', {}).get('nodes', [])
-        project_nums = [p['number'] for p in project_nodes if p.get('number')]
+        """Fetches detailed data for all active tasks across all org projects with full pagination."""
+        all_project_nums = []
+        cursor = None
+        while True:
+            query_projects = """
+            query($org: String!, $cursor: String) {
+              organization(login: $org) {
+                projectsV2(first: 100, after: $cursor) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes { number title }
+                }
+              }
+            }
+            """
+            resp = requests.post(self.graphql_url, headers=self.headers, json={"query": query_projects, "variables": {"org": self.org, "cursor": cursor}})
+            data = resp.json().get('data', {}).get('organization', {}).get('projectsV2', {})
+            nodes = data.get('nodes', [])
+            for p in nodes:
+                if p.get('number'):
+                    all_project_nums.append(p['number'])
+            
+            if not data.get('pageInfo', {}).get('hasNextPage'): break
+            cursor = data['pageInfo']['endCursor']
 
+        print(f"DEBUG: Scanning {len(all_project_nums)} projects for active tasks...")
         active_tasks = []
         unique_ids = set()
 
-        for p_num in project_nums:
+        for p_num in all_project_nums:
             cursor = None
             while True:
                 query_items = """
                 query($org: String!, $number: Int!, $cursor: String) {
                   organization(login: $org) {
                     projectV2(number: $number) {
+                      title
                       items(first: 100, after: $cursor) {
                         pageInfo { hasNextPage endCursor }
                         nodes {
@@ -344,7 +362,8 @@ class GitHubSpecialist:
                 try:
                     resp_items = requests.post(self.graphql_url, headers=self.headers, json={"query": query_items, "variables": {"org": self.org, "number": p_num, "cursor": cursor}})
                     items_json = resp_items.json()
-                    items_data = items_json.get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {})
+                    p_data = items_json.get('data', {}).get('organization', {}).get('projectV2', {})
+                    items_data = p_data.get('items', {})
                     nodes = items_data.get('nodes', [])
                     if not nodes: break
 
@@ -373,7 +392,7 @@ class GitHubSpecialist:
                             "title": content.get('title'),
                             "url": content.get('url', '#'),
                             "assignee": assignee_login,
-                            "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
+                            "project_tag": fields.get("Portfolio Project") or fields.get("project") or p_data.get('title', 'Maintenance'),
                             "start_date": fields.get("Start date"),
                             "end_date": fields.get("End date"),
                             "status": fields.get("Status") or "Open"
