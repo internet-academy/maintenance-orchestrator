@@ -187,3 +187,26 @@ class GitHubSpecialist:
                 found += 1
                 if item.get('content', {}).get('state') == 'CLOSED': closed += 1
         return found > 0 and found == closed
+
+    def get_gist_content(self, gist_id, filename):
+        """Fetches the JSON content of a file from a GitHub Gist."""
+        try:
+            gist = self.gh_client.get_gist(gist_id)
+            if filename in gist.files:
+                return json.loads(gist.files[filename].content)
+        except Exception as e:
+            print(f"DEBUG: Could not read Gist {gist_id}: {e}")
+        return None
+
+    def update_gist(self, gist_id, filename, content_dict):
+        """Updates a GitHub Gist with the provided dictionary as JSON."""
+        if self.dry_run:
+            print(f"[DRY RUN] Would update Gist {gist_id} with new state.")
+            return
+        try:
+            from github import InputFileContent
+            gist = self.gh_client.get_gist(gist_id)
+            gist.edit(files={filename: InputFileContent(json.dumps(content_dict, indent=2))})
+            print(f"GIST: State saved to {filename} in Gist {gist_id}")
+        except Exception as e:
+            print(f"ERROR: Failed to update Gist {gist_id}: {e}")
