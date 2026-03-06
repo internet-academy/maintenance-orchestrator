@@ -36,14 +36,29 @@ class GitSync:
             try:
                 gh_data = self.gh_specialist.get_project_item_data(issue_num, project_number=4)
                 if not gh_data: continue
-                
+                # 2. Map GitHub Status to Sheet Display
                 gh_status = gh_data.get('Status')
                 sheet_status = task.get('current_sheet_status', '')
-                
+
+                # --- PR DETECTION ENGINE ---
+                # Check for linked PRs to this issue
+                has_active_pr = False
+                try:
+                    # Search for Pull Requests that mention this issue number
+                    pr_query = f'repo:{self.gh_specialist.org}/member "{issue_num}" is:pr is:open'
+                    pr_search = self.gh_client.search_issues(query=pr_query)
+                    if pr_search.totalCount > 0:
+                        has_active_pr = True
+                except: pass
+
                 new_sheet_status = None
-                if gh_status == "Done": new_sheet_status = "Complete!"
-                elif gh_status == "In progress": new_sheet_status = "In Progress"
-                elif gh_status in ["To Triage", "Backlog", "Ready"]: new_sheet_status = "Open"
+                if gh_status == "Done": 
+                    new_sheet_status = "Complete!"
+                elif gh_status == "In progress" or has_active_pr: 
+                    new_sheet_status = "In Progress"
+                elif gh_status in ["To Triage", "Backlog", "Ready"]: 
+                    new_sheet_status = "Open"
+
                 
                 if new_sheet_status and new_sheet_status != sheet_status:
                     print(f"  - SYNC: Issue #{issue_num} Status: {gh_status} -> Sheet: {new_sheet_status}")
