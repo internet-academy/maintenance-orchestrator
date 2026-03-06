@@ -1,68 +1,65 @@
 import os
-from orchestrator import Orchestrator
+import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from orchestrator import Orchestrator
 
 load_dotenv()
 
-def run_tomorrow_report_test():
-    print("--- Testing 'Daily Report' for Tomorrow (Simulation) ---")
+def test_reports():
+    orc = Orchestrator(dry_run=True)
+    gh = orc.gh_specialist
     
-    # 1. Initialize Orchestrator in Dry Run mode
-    orchestrator = Orchestrator(dry_run=True)
-    
-    # 2. Mock some tasks
-    mock_tasks = [
-        {
-            "id": "1",
-            "backlog_id": "MD_SD-1249",
-            "requester": "Suzuki",
-            "pic": "Saurabh",
-            "content": "Request to change the first session date for student",
-            "title_summary": "Update enrollment date for Riho Kano",
-            "current_sheet_status": "In Progress"
-        },
-        {
-            "id": "2",
-            "backlog_id": "MD_SD-1250",
-            "requester": "Inaba",
-            "pic": "Raman",
-            "content": "Possible issue with exam time limits",
-            "title_summary": "LMS Exam Time Limit Discrepancy",
-            "current_sheet_status": ""
-        }
-    ]
+    print("Fetching live data from GitHub...")
+    active_tasks = gh.get_full_active_tasks()
+    login_to_name = {v.lower(): k for k, v in orc.developer_map.items()}
 
-    # 3. Simulate Tomorrow
-    tomorrow = datetime.now() + timedelta(days=1)
-    tomorrow_str = tomorrow.strftime("%Y%m%d")
-    
-    print(f"DEBUG: Simulating Date: {tomorrow_str}\n")
-    
-    thread_key = f"daily_report_{tomorrow_str}"
-    header = f"Daily Report {tomorrow_str}"
-    
-    print(f"[REPORT PREVIEW]")
-    print(f"Target Thread Key: {thread_key}")
-    print(f"Message 1 (Header): {header}")
-    
-    report_data = {}
-    for task in mock_tasks:
-        pic_name = task.get('pic')
-        if not pic_name: continue
-        if pic_name not in report_data:
-            report_data[pic_name] = []
+    def generate_preview(target_date):
+        target_str = target_date.strftime("%Y-%m-%d")
+        print(f"\n--- PREVIEW FOR DATE: {target_str} ---")
         
-        title = task.get('title_summary', task['content'][:50])
-        report_data[pic_name].append(f"- [{task.get('backlog_id', 'NEW')}] {title}")
+        in_progress = {}
+        delayed = {}
+        unscheduled = []
 
-    for name, tasks in report_data.items():
-        chat_id = orchestrator.chat_ids.get(name, name)
-        mention = f"<users/{chat_id}>" if chat_id.isdigit() else f"@{name}"
-        msg = f"{mention} here are your tasks for today:\n" + "\n".join(tasks)
-        print(f"Message (PIC: {name}): {msg}")
+        for task in active_tasks:
+            login = (task['assignee'] or "unassigned").lower()
+            name = login_to_name.get(login, "Unassigned")
+            start = task.get('start_date')
+            end = task.get('end_date')
+            
+            task_entry = f"• *{task['project_tag']}* {task['title']}"
+            if start: task_entry += f" [{start} → {end}]"
 
-    print("\n--- Test Complete ---")
+            if not start or not end:
+                unscheduled.append(f"• *{task['project_tag']}* {task['title']} (@{name})")
+            else:
+                start_dt = datetime.strptime(start, "%Y-%m-%d")
+                end_dt = datetime.strptime(end, "%Y-%m-%d")
+                
+                # We use the same comparison logic as the orchestrator
+                if end_dt < target_date.replace(hour=0, minute=0, second=0, microsecond=0):
+                    if name not in delayed: delayed[name] = []
+                    delayed[name].append(task_entry)
+                elif start_dt <= target_date <= (end_dt + timedelta(days=1)):
+                    if name not in in_progress: in_progress[name] = []
+                    in_progress[name].append(task_entry)
+
+        # Print simple console version
+        if in_progress:
+            print("🚀 IN PROGRESS:")
+            for n, t in in_progress.items(): print(f"  {n}: {len(t)} tasks")
+        if delayed:
+            print("⚠️ DELAYED:")
+            for n, t in delayed.items(): print(f"  {n}: {len(t)} tasks")
+        print(f"🔍 UNSCHEDULED: {len(unscheduled)} tasks")
+
+    # Run for Today and Tomorrow
+    today = datetime.now()
+    tomorrow = today + timedelta(days=1)
+    
+    generate_preview(today)
+    generate_preview(tomorrow)
 
 if __name__ == "__main__":
-    run_tomorrow_report_test()
+    test_reports()
