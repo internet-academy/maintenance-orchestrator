@@ -223,6 +223,69 @@ class Orchestrator:
             except Exception as e: print(f"ERROR: Failed to process task {task['id']}: {e}")
         else: print(f"OVERLOAD: No capacity for Task {task['id']}.")
 
+    def process_dev_requests(self):
+        """Scans numeric sheets and creates [NEW DEV] issues for approved requests."""
+        print("\n--- Scanning for New Development Requests (Numeric Sheets) ---")
+        try:
+            dev_tasks = self.ingestor.get_dev_requests()
+            print(f"Found {len(dev_tasks)} approved dev requests needing tickets.")
+            
+            for task in dev_tasks:
+                current_hash = hashlib.sha256(task['content'].encode()).hexdigest()
+                # Unique state key for dev requests
+                state_key = f"DEV_{task['id']}"
+                
+                if self.state.get(state_key) == current_hash:
+                    continue
+                    
+                print(f"CREATING: [NEW DEV] Request {task['id']} - {task['title']}")
+                
+                # Generate specialized bilingual content for dev requests
+                full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+                summary = f"[NEW DEV] {ai_summary} ({romaji_name} - #{task['id']})"
+                
+                if self.dry_run:
+                    print(f"[DRY RUN] Would create Parent/Sub issues for {task['id']}")
+                    continue
+                    
+                try:
+                    # Phase 1: Parent Issue
+                    issue = self.gh_specialist.create_issue(
+                        repo="member", title=summary, body=full_desc, assignee=None, labels=["staff-report", "new-development"]
+                    )
+                    issue_url = issue['html_url']
+                    p_node = issue['node_id']
+                    
+                    # Link to Projects
+                    item_p4 = self.gh_specialist.add_to_project(p_node, 4)
+                    item_p3 = self.gh_specialist.add_to_project(p_node, 3)
+                    
+                    # Set tags
+                    self.gh_specialist.update_field(3, item_p3, 'project', self.gh_specialist.projects[3]['options']['project_new_dev'], is_option=True)
+                    self.gh_specialist.update_field(4, item_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
+                    self.gh_specialist.update_field(4, item_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
+
+                    # Phase 2: Sub-issue
+                    sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{issue['number']})"
+                    sub_issue = self.gh_specialist.create_issue(repo="member", title=sub_title, body="Initial review task for new development.", assignee=None)
+                    self.gh_specialist.link_subissue(p_node, sub_issue['node_id'])
+                    sub_item = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
+                    self.gh_specialist.update_field(4, sub_item, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
+                    self.gh_specialist.update_field(4, sub_item, 'hours', 0.33)
+                    
+                    # Write-back
+                    self.ingestor.write_dev_ticket(task['sheet_name'], issue_url)
+                    self.state[state_key] = current_hash
+                    print(f"SUCCESS: Created {issue_url}")
+                    
+                    self.stats["new_tasks"] += 1
+                    time.sleep(2)
+                    
+                except Exception as e:
+                    print(f"ERROR: Failed to process dev request {task['id']}: {e}")
+        except Exception as e:
+            print(f"ERROR: Dev request scan failed: {e}")
+
     def _find_best_dev(self, hours):
         team_options = []
         choo_option = None
