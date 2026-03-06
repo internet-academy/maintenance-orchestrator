@@ -75,16 +75,54 @@ class GitHubSpecialist:
         r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"project": project_id, "content": node_id}})
         r.raise_for_status()
         return r.json()["data"]["addProjectV2ItemById"]["item"]["id"]
+def update_field(self, project_number, item_id, field_key, value, is_option=False):
+    """Updates a field in a project with explicit type handling."""
+    project_id = self.projects[project_number]["id"]
+    field_id = self.projects[project_number]["fields"].get(field_key)
+    if not field_id:
+        print(f"ERROR: Field key '{field_key}' not configured for Project {project_number}")
+        return
 
-    def update_field(self, project_number, item_id, field_key, value, is_option=False):
-        project_id = self.projects[project_number]["id"]
-        field_id = self.projects[project_number]["fields"].get(field_key)
-        if not field_id or self.dry_run: return
-        v_key = "singleSelectOptionId" if is_option else ("date" if "-" in str(value) and len(str(value)) == 10 else ("number" if isinstance(value, (int, float)) else "text"))
-        val_type = "Float" if v_key == "number" else "String"
-        mutation = f"mutation($project: ID!, $item: ID!, $field: ID!, $value: {val_type}!) {{ updateProjectV2ItemFieldValue(input: {{ projectId: $project, itemId: $item, fieldId: $field, value: {{ {v_key}: $value }} }}) {{ clientMutationId }} }}"
-        r = requests.post(self.graphql_url, headers=self.headers, json={"query": mutation, "variables": {"project": project_id, "item": item_id, "field": field_id, "value": value if v_key == "number" else str(value)}})
-        r.raise_for_status()
+    if self.dry_run:
+        print(f"[DRY RUN] Project {project_number} update: {field_key} -> {value}")
+        return
+
+    # Explicit type selection based on value and field configuration
+    if is_option:
+        v_key = "singleSelectOptionId"
+        v_type = "String"
+        v_val = str(value)
+    elif "-" in str(value) and len(str(value)) == 10:
+        v_key = "date"
+        v_type = "Date"
+        v_val = str(value)
+    elif isinstance(value, (int, float)):
+        v_key = "number"
+        v_type = "Float"
+        v_val = float(value)
+    else:
+        v_key = "text"
+        v_type = "String"
+        v_val = str(value)
+
+    mutation = """
+    mutation($project: ID!, $item: ID!, $field: ID!, $value: %VAL_TYPE%!) {
+      updateProjectV2ItemFieldValue(input: {
+        projectId: $project, itemId: $item, fieldId: $field,
+        value: { %KEY%: $value }
+      }) { clientMutationId }
+    }
+    """
+    query = mutation.replace("%VAL_TYPE%", v_type).replace("%KEY%", v_key)
+    variables = {"project": project_id, "item": item_id, "field": field_id, "value": v_val}
+
+    response = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": variables})
+    res_json = response.json()
+    if "errors" in res_json:
+        print(f"ERROR updating project {project_number} field {field_key}: {res_json['errors']}")
+    else:
+        response.raise_for_status()
+
 
     def link_subissue(self, parent_node_id, child_node_id):
         if self.dry_run: return
