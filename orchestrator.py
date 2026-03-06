@@ -76,13 +76,16 @@ class Orchestrator:
         
         self.start_date = os.getenv('SYNC_START_DATE') 
         self.timelines = {}
+        
+        # --- OPTIMIZED: Fetch all active tasks ONCE ---
+        print("ORCHESTRATOR: Initializing global capacity map...")
+        self.all_active_tasks = self.gh_specialist.get_full_active_tasks()
+        
         for name, github_user in self.developer_map.items():
             timeline = DeveloperTimeline(name, start_date=self.start_date)
-            try:
-                actual_load = self.gh_specialist.get_active_workload(github_user)
-                timeline.fill_hours(actual_load)
-            except Exception as e:
-                print(f"WARNING: Could not fetch initial load for {name}: {e}")
+            # Filter the cached list for this specific user
+            user_load = sum(t.get('hours', 0.0) for t in self.all_active_tasks if t['assignee'] and t['assignee'].lower() == github_user.lower())
+            timeline.fill_hours(user_load)
             self.timelines[github_user] = timeline
 
         # Tracking for detailed audit output
