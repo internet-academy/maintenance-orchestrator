@@ -408,50 +408,77 @@ class Orchestrator:
             self._post_to_chat(msg)
 
     def _send_daily_report(self, unused_all_tasks):
-        """Aggregates all open parent tasks from GitHub into a consolidated daily report."""
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        """Focuses the daily report on Today's priority tasks and delays."""
+        today_dt = datetime.now()
+        today_str = today_dt.strftime("%Y-%m-%d")
         
-        # 1. Fetch LIVE data from GitHub
-        print("REPORT: Fetching live task data from GitHub for Daily Report...")
+        print("REPORT: Analyzing tasks for Today's Status Report...")
         active_tasks = self.gh_specialist.get_full_active_tasks()
         
-        # 2. Group by PIC
-        # Map GitHub login back to Human Name for chat_ids lookup
         login_to_name = {v.lower(): k for k, v in self.developer_map.items()}
         
-        report_data = {}
+        # Categorized data
+        in_progress = {} # PIC -> [Tasks]
+        delayed = {}     # PIC -> [Tasks]
+        unscheduled = [] # [Tasks]
+
         for task in active_tasks:
             login = (task['assignee'] or "unassigned").lower()
-            pic_name = login_to_name.get(login, "Unassigned")
+            name = login_to_name.get(login, "Unassigned")
             
-            if pic_name not in report_data: report_data[pic_name] = []
+            # Date analysis
+            start = task.get('start_date')
+            end = task.get('end_date')
             
-            date_str = f"[{task['start_date']} → {task['end_date']}]" if task['start_date'] else "[No Dates]"
-            proj_tag = f"*{task['project_tag']}*"
-            report_data[pic_name].append(f"• {proj_tag} {task['title']} {date_str}")
+            task_entry = f"• *{task['project_tag']}* {task['title']}"
+            if start: task_entry += f" [{start} → {end}]"
+
+            if not start or not end:
+                unscheduled.append(f"• *{task['project_tag']}* {task['title']} (@{name})")
+            else:
+                try:
+                    start_dt = datetime.strptime(start, "%Y-%m-%d")
+                    end_dt = datetime.strptime(end, "%Y-%m-%d")
+                    
+                    if end_dt < today_dt.replace(hour=0, minute=0, second=0, microsecond=0):
+                        if name not in delayed: delayed[name] = []
+                        delayed[name].append(task_entry)
+                    elif start_dt <= today_dt <= (end_dt + timedelta(days=1)):
+                        if name not in in_progress: in_progress[name] = []
+                        in_progress[name].append(task_entry)
+                except:
+                    unscheduled.append(f"• *{task['project_tag']}* {task['title']} (@{name})")
 
         # 3. Build the Message
-        full_report = f"📅 *Daily Status Report ({today_str})*\n"
-        full_report += "________________________________\n\n"
+        msg = f"📅 *Daily Operations Report ({today_str})*\n"
+        msg += "________________________________\n\n"
 
-        if not report_data:
-            full_report += "✅ No active parent tasks found across all projects!"
-        else:
-            # Sort by PIC to keep report consistent
-            for name in sorted(report_data.keys()):
-                tasks = report_data[name]
-                chat_id = self.chat_ids.get(name, name)
-                # If chat_id is numeric, use the @mention format
-                mention = f"<users/{chat_id}>" if chat_id.replace(".","").isdigit() else f"*{name}*"
-                
-                full_report += f"{mention}\n" + "\n".join(tasks) + "\n\n"
+        if in_progress:
+            msg += "🚀 *IN PROGRESS TODAY*\n"
+            for name in sorted(in_progress.keys()):
+                mention = f"<users/{self.chat_ids.get(name, name)}>" if self.chat_ids.get(name, "").replace(".","").isdigit() else f"*{name}*"
+                msg += f"{mention}\n" + "\n".join(in_progress[name]) + "\n\n"
 
-        # 4. Post to Chat
-        print(f"REPORT: Sending consolidated Daily Report to Google Chat...")
+        if delayed:
+            msg += "⚠️ *DELAYED TASKS*\n"
+            for name in sorted(delayed.keys()):
+                mention = f"<users/{self.chat_ids.get(name, name)}>" if self.chat_ids.get(name, "").replace(".","").isdigit() else f"*{name}*"
+                msg += f"{mention}\n" + "\n".join(delayed[name]) + "\n\n"
+
+        if unscheduled:
+            msg += "🔍 *NEEDS SCHEDULING*\n"
+            msg += "\n".join(unscheduled[:10]) # Limit to 10 for brevity
+            if len(unscheduled) > 10: msg += f"\n_...and {len(unscheduled)-10} more_"
+            msg += "\n\n"
+
+        if not any([in_progress, delayed, unscheduled]):
+            msg += "✅ No active parent tasks found!"
+
+        print(f"REPORT: Sending focused Operations Report to Google Chat...")
         if self.dry_run:
-            print(f"[DRY RUN] Would post daily report:\n{full_report}")
+            print(f"[DRY RUN] Would post focused report:\n{msg}")
         else:
-            self._post_to_chat(full_report)
+            self._post_to_chat(msg)
 
     def _post_to_chat(self, text):
         if not self.chat_webhook: 
