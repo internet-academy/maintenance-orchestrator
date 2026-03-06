@@ -3566,3 +3566,12 @@ https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/READM
 🚀 Deep Scanning /tmp/blueprint_sync_member...
 ✅ Deep Blueprint saved to /home/min/projects/personal-agents/member_blueprint.md
 🧠 Refreshing member Semantics (L4)...
+/home/min/projects/personal-agents/semantic_indexer.py:9: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
