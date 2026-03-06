@@ -375,7 +375,13 @@ class GitHubSpecialist:
 
                     for item in nodes:
                         content = item.get("content")
-                        if not content or content.get("closed") is True or item.get("isArchived") is True: continue
+                        # A task is active if it's NOT closed and NOT archived
+                        # Check for both Boolean and potential None values
+                        is_closed = content.get("closed") if content else False
+                        is_archived = item.get("isArchived")
+                        
+                        if not content or is_closed is True or is_archived is True: 
+                            continue
                         
                         content_id = content.get('id')
                         if not content_id or content_id in unique_ids: continue
@@ -387,8 +393,10 @@ class GitHubSpecialist:
                             val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
                             if field_name: fields[field_name] = val
                         
+                        # Skip if explicitly marked as Child
                         if fields.get("Level") == "Child": continue
 
+                        # Extract Assignee (Optional - don't skip if empty)
                         assignee_nodes = content.get("assignees", {}).get("nodes", [])
                         assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
 
