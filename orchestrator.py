@@ -49,7 +49,7 @@ class Orchestrator:
         
         if self.gemini_key:
             self.client = genai.Client(api_key=self.gemini_key)
-            self.model_name = 'gemini-flash-latest'
+            self.model_name = 'gemini-2.0-flash'
         else:
             self.client = None
 
