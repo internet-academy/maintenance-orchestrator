@@ -119,11 +119,12 @@ class GitHubSpecialist:
         return load
 
     def get_full_active_tasks(self):
-        """Fetches all active tasks with hyper-resilient logic and explicit debugging."""
+        """Fetches all active parent tasks across key projects with simplified robust logic."""
         active_tasks = []
         unique_ids = set()
+        
+        # We target the most critical projects by number
         for p_num in [3, 4]:
-            print(f"DEBUG: Querying Project #{p_num}...")
             query = """
             query($org: String!, $number: Int!) {
               organization(login: $org) {
@@ -134,10 +135,8 @@ class GitHubSpecialist:
                       id
                       isArchived
                       content {
-                        __typename
                         ... on Issue { id number title url closed assignees(first: 1) { nodes { login } } }
                         ... on PullRequest { id number title url closed assignees(first: 1) { nodes { login } } }
-                        ... on DraftIssue { id title assignees(first: 1) { nodes { login } } }
                       }
                       fieldValues(first: 20) {
                         nodes {
@@ -153,50 +152,48 @@ class GitHubSpecialist:
               }
             }
             """
-            r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": p_num}})
-            res_json = r.json()
-            
-            if "errors" in res_json:
-                print(f"DEBUG: Project {p_num} GraphQL Errors: {res_json['errors']}")
-                continue
+            try:
+                r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": p_num}})
+                data = r.json().get('data', {}).get('organization', {}).get('projectV2', {})
+                if not data:
+                    print(f"WARNING: Project {p_num} returned no data.")
+                    continue
+                    
+                for item in data.get('items', {}).get('nodes', []):
+                    content = item.get('content')
+                    if not content: continue
+                    
+                    # Skip if closed or archived
+                    if content.get('closed') or item.get('isArchived'): continue
+                    if content['id'] in unique_ids: continue
+                    
+                    # Extract fields into a flat map
+                    fields = {}
+                    for fv in item.get('fieldValues', {}).get('nodes', []):
+                        f_name = fv.get('field', {}).get('name')
+                        f_val = fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')
+                        if f_name: fields[f_name] = f_val
+                    
+                    # Logic: Only Parent tasks go in the daily report
+                    if fields.get('Level') == 'Child': continue
+                    
+                    # Map back to standard object
+                    assignees = content.get('assignees', {}).get('nodes', [])
+                    active_tasks.append({
+                        "id": content['id'],
+                        "number": content.get('number'),
+                        "title": content.get('title'),
+                        "url": content.get('url'),
+                        "assignee": assignees[0].get('login') if assignees else None,
+                        "project_tag": fields.get('Portfolio Project') or fields.get('project') or data.get('title'),
+                        "start_date": fields.get('Start date'),
+                        "end_date": fields.get('End date'),
+                        "hours": float(fields.get('Assigned Hours') or 0.0)
+                    })
+                    unique_ids.add(content['id'])
+            except Exception as e:
+                print(f"ERROR querying project {p_num}: {e}")
                 
-            project_data = res_json.get('data', {}).get('organization', {}).get('projectV2', {})
-            nodes = project_data.get('items', {}).get('nodes', [])
-            print(f"DEBUG: Project {p_num} ('{project_data.get('title')}') returned {len(nodes)} items.")
-            
-            for item in nodes:
-                content = item.get('content')
-                if not content: continue
-                
-                # Resiliently check closed status
-                # DraftIssues don't have a 'closed' property, so default to False
-                is_closed = content.get('closed', False)
-                if is_closed or item.get('isArchived'): continue
-                
-                content_id = content.get('id')
-                if not content_id or content_id in unique_ids: continue
-                
-                fields = {fv['field']['name']: (fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')) for fv in item['fieldValues']['nodes'] if fv.get('field')}
-                
-                if fields.get('Level') == 'Child': continue
-                
-                assignees = content.get('assignees', {}).get('nodes', [])
-                login = assignees[0].get('login') if assignees else None
-
-                active_tasks.append({
-                    "id": content_id, 
-                    "number": content.get('number', 'DRAFT'), 
-                    "title": content.get('title'), 
-                    "url": content.get('url', '#'),
-                    "assignee": login,
-                    "project_tag": fields.get('Portfolio Project') or fields.get('project') or project_data.get('title', 'General'),
-                    "start_date": fields.get('Start date'), 
-                    "end_date": fields.get('End date'), 
-                    "hours": float(fields.get('Assigned Hours') or 0.0)
-                })
-                unique_ids.add(content_id)
-        
-        print(f"DEBUG: Final Active Task Count: {len(active_tasks)}")
         return active_tasks
 
     def get_child_issues_status(self, parent_title):
