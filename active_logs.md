@@ -106,3 +106,4 @@ Feb 26, 2026: Resolved CKEditor 5 Japanese translation issue. Created PR #2533 (
 IMPROVEMENT: Enhanced translation quality by adding context-aware prompts, 1000ms endpointing, and sequential context history processing in live_gui.py.
 IMPROVEMENT: Implemented Dynamic AGC and Noise Gate in live_gui.py to improve audio clarity and prevent clipping. Added context-aware translation with GPT-4o-mini and increased Deepgram endpointing to 1000ms.
 ADDED ALIAS: 'translator' maps to /home/min/projects/meeting-translator/run_hud.sh for instant startup of the Meeting Translator HUD.
+2026-03-06: Implemented automatic CS registration notification for 'cs_group' staff (triggered by 'mama_edu_flag') in kikuichimonji/apps/school/views/api.py. PR #2589 created on branch y_choo. Resolved 403 HttpError by advising user to add the Chat App to the target space.
