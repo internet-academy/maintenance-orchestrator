@@ -199,6 +199,18 @@ class GitHubSpecialist:
         except:
             return ""
 
+    def get_child_issues_status(self, parent_title):
+        query = "query($org: String!) { organization(login: $org) { projectV2(number: 4) { items(first: 100) { nodes { fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } } } content { ... on Issue { state } } } } } } }"
+        r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org}})
+        items = r.json().get('data', {}).get('organization', {}).get('projectV2', {}).get('items', {}).get('nodes', [])
+        found = closed = 0
+        for item in items:
+            fields = {fv['field']['name']: (fv.get('text') or fv.get('name')) for fv in item['fieldValues']['nodes'] if fv.get('field')}
+            if fields.get('Level') == 'Child' and fields.get('Parent issue') == parent_title:
+                found += 1
+                if item.get('content', {}).get('state') == 'CLOSED': closed += 1
+        return found > 0 and found == closed
+
     def get_gist_content(self, gist_id, filename):
         """Fetches the JSON content of a file from a GitHub Gist."""
         try:
