@@ -154,6 +154,74 @@ class CloudIngestor:
                     worksheet.update_cell(r + 1, c + 2, end_date)
                     time.sleep(1)
 
+    def get_dev_requests(self):
+        """Scans all numeric tabs (e.g., 034) for approved development requests."""
+        workbook = self.client.open_by_key(self.sheet_id)
+        dev_tasks = []
+        
+        # Regex to match 3-digit sheet names
+        numeric_pattern = re.compile(r'^\d{3}$')
+        
+        for ws in workbook.worksheets():
+            if not numeric_pattern.match(ws.title):
+                continue
+                
+            try:
+                # 1. Check Decision (Cell D51)
+                # gspread is 1-based: Row 51, Col 4
+                decision = ws.cell(51, 4).value
+                if decision != "受ける":
+                    continue
+                
+                # 2. Check if Ticket already exists (Row 83, Col 1 or 4)
+                existing_ticket = ws.cell(83, 1).value or ws.cell(83, 4).value
+                if existing_ticket and "github.com" in str(existing_ticket):
+                    continue
+                
+                # 3. Pull Metadata
+                title = ws.cell(4, 4).value
+                background = ws.cell(7, 4).value
+                details = ws.cell(11, 4).value
+                requester = ws.cell(2, 4).value
+                
+                dev_tasks.append({
+                    "id": ws.title,
+                    "title": title,
+                    "content": f"### Background\n{background}\n\n### Details\n{details}",
+                    "requester": requester,
+                    "sheet_name": ws.title,
+                    "type": "NEW_DEV"
+                })
+                # Prevent 429
+                import time
+                time.sleep(1)
+                
+            except Exception as e:
+                print(f"ERROR: Could not parse dev sheet {ws.title}: {e}")
+                
+        return dev_tasks
+
+    def write_dev_ticket(self, sheet_name, ticket_url):
+        """Writes the ticket URL back to the individual numeric sheet and master list."""
+        workbook = self.client.open_by_key(self.sheet_id)
+        
+        # 1. Update individual sheet (Row 83)
+        try:
+            ws = workbook.worksheet(sheet_name)
+            ws.update_cell(83, 1, "GitHub Ticket:")
+            ws.update_cell(83, 4, ticket_url)
+        except: pass
+        
+        # 2. Update Master List (Col 15)
+        try:
+            master = workbook.worksheet('📋設計・開発タスク一覧')
+            data = master.get_all_values()
+            for i, row in enumerate(data):
+                if sheet_name in row:
+                    master.update_cell(i + 1, 15, ticket_url)
+                    break
+        except: pass
+
     def _is_valid(self, task):
         # Reject tasks with no date, no requester, OR no content.
         # Ensure we are processing current 2026 tasks.
