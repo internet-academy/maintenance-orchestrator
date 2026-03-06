@@ -21,13 +21,14 @@ class GitHubSpecialist:
                 "id": "PVT_kwDOA1jKuM4BQoor",
                 "fields": {
                     "status": "PVTSSF_lADOA1jKuM4BQoorzg-spXY",
-                    "project": "PVTSSF_lADOA1jKuM4BQoorzg-tC7Q",
+                    "portfolio_project": "PVTSSF_lADOA1jKuM4BQoorzg-tC7Q",
                     "start_date": "PVTF_lADOA1jKuM4BQoorzg-xYWY",
                     "end_date": "PVTF_lADOA1jKuM4BQoorzg-xYWs"
                 },
                 "options": {
                     "project_maintenance": "109c057b",
-                    "project_new_dev": "a87ad165"
+                    "project_new_dev": "a87ad165",
+                    "project_ai": "58bc76f7"
                 }
             },
             4: {

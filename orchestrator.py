@@ -207,7 +207,7 @@ class Orchestrator:
                 
                 # Project 3
                 item_p3 = self.gh_specialist.add_to_project(p_node, 3)
-                self.gh_specialist.update_field(3, item_p3, 'project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
+                self.gh_specialist.update_field(3, item_p3, 'portfolio_project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
                 self.gh_specialist.update_field(3, item_p3, 'start_date', start_date)
                 self.gh_specialist.update_field(3, item_p3, 'end_date', end_date)
 
