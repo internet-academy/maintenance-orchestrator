@@ -122,6 +122,16 @@ class Orchestrator:
 
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+        
+        # Stats for reporting
+        self.stats = {
+            "new_tasks": 0,
+            "reassigned": 0,
+            "status_syncs": 0,
+            "healed_links": 0,
+            "date_syncs": 0
+        }
+
         display_date = self.start_date if self.start_date else "Today"
         print(f"\n--- Team Capacity Map (Starting {display_date}) ---")
         for name, github_user in self.developer_map.items():
@@ -141,7 +151,11 @@ class Orchestrator:
             print(f"Found {len(tasks)} valid tasks in Google Sheets.")
             
             if self.git_sync:
-                self.git_sync.scan_and_sync(tasks)
+                sync_stats = self.git_sync.scan_and_sync(tasks)
+                if sync_stats:
+                    self.stats["status_syncs"] += sync_stats.get("status_changes", 0)
+                    self.stats["healed_links"] += sync_stats.get("healed_links", 0)
+                    self.stats["date_syncs"] += sync_stats.get("date_migrations", 0)
 
             import time
             for task in tasks:
@@ -151,6 +165,10 @@ class Orchestrator:
                 else:
                     time.sleep(1) # Faster but still safe for dry run
             
+            # --- SYNC REPORT ---
+            if any(v > 0 for v in self.stats.values()):
+                self._send_sync_report()
+
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
             if datetime.now().hour == target_hour and self.state.get('last_report_date') != today_date:
