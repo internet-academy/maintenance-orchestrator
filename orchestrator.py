@@ -135,6 +135,9 @@ class Orchestrator:
             if any(v > 0 for v in self.stats.values()):
                 self._send_sync_report()
 
+            # 3. Process NEW Development Requests (Numeric Sheets)
+            self.process_dev_requests()
+
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
             if datetime.now().hour == target_hour and self.state.get('last_report_date') != today_date:
