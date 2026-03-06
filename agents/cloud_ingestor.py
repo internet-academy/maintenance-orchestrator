@@ -166,6 +166,10 @@ class CloudIngestor:
             if not numeric_pattern.match(ws.title):
                 continue
                 
+            # SAFETY DELAY: Google Sheets has strict 'per user' quotas
+            import time
+            time.sleep(2)
+            
             try:
                 # 1. Check Decision (Cell D51)
                 # gspread is 1-based: Row 51, Col 4
