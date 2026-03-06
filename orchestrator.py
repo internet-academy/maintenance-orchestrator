@@ -34,7 +34,7 @@ class Orchestrator:
         self.gemini_key = os.getenv('GEMINI_API_KEY')
         self.github_token = os.getenv('GITHUB_TOKEN')
         
-        # State tracking via GitHub Gist (resilient against merge conflicts)
+        # State tracking via GitHub Gist
         self.gist_id = os.getenv('STATE_GIST_ID', '50a6b0cb6b461053f0aeb5d4d45fad94')
         self.state_filename = "sync_state.json"
         
@@ -46,12 +46,6 @@ class Orchestrator:
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
         self.gh_specialist = GitHubSpecialist(self.github_token, dry_run=self.dry_run)
-        
-        # Load State from Gist
-        print(f"ORCHESTRATOR: Loading state from Gist {self.gist_id}...")
-        self.state = self.gh_specialist.get_gist_content(self.gist_id, self.state_filename) or {}
-        if not self.state:
-            print("WARNING: Gist state is empty or missing. Falling back to empty map.")
         
         if self.github_token:
             self.git_sync = GitSync(self.github_token, self.ingestor, dry_run=self.dry_run)
@@ -90,7 +84,9 @@ class Orchestrator:
             timeline.fill_hours(user_load)
             self.timelines[github_user] = timeline
 
-        self.detailed_audit_shown = set()
+        # Load State from Gist
+        print(f"ORCHESTRATOR: Loading state from Gist {self.gist_id}...")
+        self.state = self.gh_specialist.get_gist_content(self.gist_id, self.state_filename) or {}
 
     def _save_state(self):
         self.gh_specialist.update_gist(self.gist_id, self.state_filename, self.state)
@@ -134,12 +130,10 @@ class Orchestrator:
                 self.process_task(task)
                 time.sleep(1 if self.dry_run else 2)
             
-            # 3. Process NEW Development Requests (Numeric Sheets) - Gated by Feature Toggle
+            # 3. Process NEW Development Requests (Gated)
             enable_dev_scan = os.getenv('ENABLE_NEW_DEV_SCAN', 'False').lower() in ['true', '1', 't', 'y', 'yes']
             if enable_dev_scan:
                 self.process_dev_requests()
-            else:
-                print("\nSKIP: New Development scanning is currently DISABLED (ENABLE_NEW_DEV_SCAN=False)")
 
             if any(v > 0 for v in self.stats.values()):
                 self._send_sync_report()
@@ -161,6 +155,7 @@ class Orchestrator:
         current_hash = self._get_task_hash(task)
         
         if task_id and (task_id.startswith("http") or "#" in task_id):
+            # --- AUTO-READY TRIGGER ---
             try:
                 match = re.search(r'/issues/(\d+)', task_id)
                 if match:
@@ -178,26 +173,28 @@ class Orchestrator:
 
         if task.get('pic'): return
 
-        full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+        # Target Repo Logic
+        target_repo = "member"
+        if "bohr" in task['content'].lower(): target_repo = "bohr-individual"
+
+        full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task, target_repo)
         best_dev = self._find_best_dev(task['estimated_hours'])
         
         if best_dev:
             start_date, end_date = self.timelines[best_dev['id']].fill_hours_with_dates(task['estimated_hours'])
             priority = self._detect_priority(task['content'])
             summary = f"[MAINTENANCE] {ai_summary} ({romaji_name} - #{task['id']})"
-            target_repo = "member"
-            if "bohr" in task['content'].lower(): target_repo = "bohr-individual"
             
             if self.dry_run:
-                print(f"[DRY RUN] Would create Parent/Sub issues for Task {task['id']} ({start_date})")
+                print(f"[DRY RUN] Would create Parent/Sub issues for Task {task['id']} in {target_repo} ({start_date})")
                 return
 
             try:
                 # Phase 1: Parent
                 issue = self.gh_specialist.create_issue(repo=target_repo, title=summary, body=full_desc, assignee=best_dev['id'], labels=["staff-report"])
                 issue_url = issue['html_url']
-                p_node = issue['node_id']
-                item_p4 = self.gh_specialist.add_to_project(p_node, 4)
+                parent_node_id = issue['node_id']
+                item_p4 = self.gh_specialist.add_to_project(parent_node_id, 4)
                 self.gh_specialist.update_field(4, item_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
                 self.gh_specialist.update_field(4, item_p4, 'start_date', start_date)
                 self.gh_specialist.update_field(4, item_p4, 'end_date', end_date)
@@ -206,7 +203,7 @@ class Orchestrator:
                 self.gh_specialist.update_field(4, item_p4, 'hours', task['estimated_hours'])
                 
                 # Project 3
-                item_p3 = self.gh_specialist.add_to_project(p_node, 3)
+                item_p3 = self.gh_specialist.add_to_project(parent_node_id, 3)
                 self.gh_specialist.update_field(3, item_p3, 'portfolio_project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
                 self.gh_specialist.update_field(3, item_p3, 'start_date', start_date)
                 self.gh_specialist.update_field(3, item_p3, 'end_date', end_date)
@@ -214,20 +211,15 @@ class Orchestrator:
                 # Phase 2: Sub-issue
                 sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{issue['number']})"
                 sub_issue = self.gh_specialist.create_issue(repo=target_repo, title=sub_title, body="Initial review task.", assignee=best_dev['id'])
-                sub_node_id = sub_issue['node_id']
-                sub_item = self.gh_specialist.add_to_project(sub_node_id, 4)
-                
-                # NATIVE LINK (Uses addSubIssue mutation)
-                self.gh_specialist.link_subissue(parent_node_id, sub_node_id)
-                
-                # Update Sub-issue Metadata
+                self.gh_specialist.link_subissue(parent_node_id, sub_issue['node_id'])
+                sub_item = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
                 self.gh_specialist.update_field(4, sub_item, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
                 self.gh_specialist.update_field(4, sub_item, 'hours', 0.33)
                 self.gh_specialist.update_field(4, sub_item, 'start_date', start_date)
                 self.gh_specialist.update_field(4, sub_item, 'end_date', start_date)
 
                 self.ingestor.write_backlog_id(task['anchors'], issue_url)
-                self.ingestor.write_status(task['anchors'], "Open")
+                self.ingestor.write_status(task['anchors'], "not started")
                 self.stats["new_tasks"] += 1
                 self.state[issue_url] = current_hash
                 print(f"SUCCESS: Created {issue_url}")
@@ -246,7 +238,7 @@ class Orchestrator:
                 state_key = f"DEV_{task['id']}"
                 if self.state.get(state_key) == current_hash: continue
                     
-                full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+                full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task, "member")
                 dev_title = task['title'] if len(task['title']) > 5 else ai_summary
                 summary = f"[NEW DEV] {dev_title} ({romaji_name} - #{task['id']})"
                 
@@ -265,13 +257,13 @@ class Orchestrator:
                     item_p4 = self.gh_specialist.add_to_project(p_node, 4)
                     item_p3 = self.gh_specialist.add_to_project(p_node, 3)
                     
-                    self.gh_specialist.update_field(3, item_p3, 'project', self.gh_specialist.projects[3]['options']['project_new_dev'], is_option=True)
+                    self.gh_specialist.update_field(3, item_p3, 'portfolio_project', self.gh_specialist.projects[3]['options']['project_new_dev'], is_option=True)
                     self.gh_specialist.update_field(4, item_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
                     self.gh_specialist.update_field(4, item_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
 
                     # Phase 2: Sub-issue
                     sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{issue['number']})"
-                    sub_issue = self.gh_specialist.create_issue(repo="member", title=sub_title, body="Initial review task for new development.", assignee=None)
+                    sub_issue = self.gh_specialist.create_issue(repo="member", title=sub_title, body="Initial review task.", assignee=None)
                     self.gh_specialist.link_subissue(p_node, sub_issue['node_id'])
                     sub_item = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
                     self.gh_specialist.update_field(4, sub_item, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
@@ -299,9 +291,18 @@ class Orchestrator:
         if team_options: return sorted(team_options, key=lambda x: x['finish_date'])[0]
         return choo_option
 
-    def _generate_bilingual_description(self, task):
+    def _generate_bilingual_description(self, task, repo_name):
         GID = "635134579"
-        title_summary, en_translation = self._translate_and_summarize(task['content'], fallback_translation=task.get('english_translation_fallback', ''))
+        
+        # Pull recent code context for better translation
+        code_context = self.gh_specialist.get_recent_repo_context(repo_name)
+        
+        title_summary, en_translation = self._translate_and_summarize(
+            task['content'], 
+            fallback_translation=task.get('english_translation_fallback', ''),
+            code_context=code_context
+        )
+        
         romaji_name = self.name_mapping.get(task['requester'], task['requester'])
         row = task.get('row_index', 0) + 1
         sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit?gid={GID}#gid={GID}&range=B{row}:C{row}"
@@ -325,9 +326,20 @@ class Orchestrator:
             description += f"## 📝 Description (English)\n\n{en_translation}\n\n## 📄 Source Content (Original)\n\n{task['content']}"
         return description, title_summary, romaji_name
 
-    def _translate_and_summarize(self, text, fallback_translation=""):
+    def _translate_and_summarize(self, text, fallback_translation="", code_context=""):
         if self.client:
-            prompt = f"Technical coordinator analyzer. 1. If Japanese, translate. 2. If English, polish. 3. Concise title (3-7 words). INPUT: {text} OUTPUT: TITLE: <title> TRANSLATION: <text>"
+            prompt = f"""
+            You are a technical coordinator. Analyze this bug report.
+            1. If Japanese, translate. 2. If English, polish. 
+            3. Concise title (3-7 words). 
+            
+            {code_context if code_context else ""}
+            
+            INPUT: {text}
+            OUTPUT FORMAT:
+            TITLE: <title>
+            TRANSLATION: <text>
+            """
             try:
                 response = self.client.models.generate_content(model=self.model_name, contents=prompt)
                 result = response.text.strip()
