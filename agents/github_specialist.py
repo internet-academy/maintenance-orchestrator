@@ -333,7 +333,7 @@ class GitHubSpecialist:
                     val = fv.get("number") or fv.get("text") or fv.get("name") or fv.get("date")
                     if name: fields[name] = val
                 
-                # We only want Parent tasks for the daily summary
+                # Include anything that isn't explicitly a Child task
                 if fields.get("Level") == "Child": continue
 
                 # Safely extract the first assignee if one exists
