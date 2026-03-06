@@ -326,7 +326,8 @@ class GitHubSpecialist:
 
             for item in items:
                 content = item.get("content")
-                if not content or content.get("closed") is True: continue
+                # A task is active if it's NOT closed and NOT archived
+                if not content or content.get("closed") is True or item.get("isArchived") is True: continue
                 if content['id'] in unique_ids: continue
 
                 fields = {}
@@ -336,25 +337,29 @@ class GitHubSpecialist:
                     val = fv.get("title") or fv.get("number") or fv.get("name") or fv.get("text") or fv.get("date")
                     if field_name: fields[field_name] = val
                 
-                # Include anything that isn't explicitly a Child task
-                if fields.get("Level") == "Child": continue
+                # Check if Status is explicitly 'Done' (if column is set)
+                is_done = fields.get("Status") == "Done"
+                
+                if not is_done:
+                    # Include anything that isn't explicitly a Child task
+                    if fields.get("Level") == "Child": continue
 
-                # Safely extract the first assignee if one exists
-                assignee_nodes = content.get("assignees", {}).get("nodes", [])
-                assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
+                    # Safely extract the first assignee if one exists
+                    assignee_nodes = content.get("assignees", {}).get("nodes", [])
+                    assignee_login = assignee_nodes[0].get("login") if assignee_nodes else None
 
-                active_tasks.append({
-                    "id": content['id'],
-                    "number": content['number'],
-                    "title": content['title'],
-                    "url": content['url'],
-                    "assignee": assignee_login,
-                    "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
-                    "start_date": fields.get("Start date"),
-                    "end_date": fields.get("End date"),
-                    "status": fields.get("Status")
-                })
-                unique_ids.add(content['id'])
+                    active_tasks.append({
+                        "id": content['id'],
+                        "number": content['number'],
+                        "title": content['title'],
+                        "url": content['url'],
+                        "assignee": assignee_login,
+                        "project_tag": fields.get("Portfolio Project") or fields.get("project") or "Maintenance",
+                        "start_date": fields.get("Start date"),
+                        "end_date": fields.get("End date"),
+                        "status": fields.get("Status") or "Open (Un-columned)"
+                    })
+                    unique_ids.add(content['id'])
         
         return active_tasks
 
