@@ -2,13 +2,14 @@ import os
 import json
 import hashlib
 import re
+import time
 from google import genai
 from dotenv import load_dotenv
 from agents.cloud_ingestor import CloudIngestor
 from agents.github_specialist import GitHubSpecialist
 from agents.load_balancer import DeveloperTimeline
 from agents.git_sync import GitSync
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Load environment variables from .env
 load_dotenv()
@@ -25,7 +26,6 @@ class Orchestrator:
             print("!!! RUNNING IN DRY RUN MODE - NO API MUTATIONS WILL OCCUR !!!")
         
         self.google_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
-        # Compatibility check: if it's a file path, read it; otherwise, use as is
         if self.google_json and os.path.exists(self.google_json):
             with open(self.google_json, 'r') as f:
                 self.google_json = f.read()
@@ -41,7 +41,6 @@ class Orchestrator:
             self.client = genai.Client(api_key=self.gemini_key)
             self.model_name = 'gemini-flash-latest'
         else:
-            print("WARNING: GEMINI_API_KEY not found. Automated translation will be skipped.")
             self.client = None
 
         self.ingestor = CloudIngestor(self.google_json, self.sheet_id)
@@ -53,8 +52,6 @@ class Orchestrator:
             self.git_sync = None
         
         self.chat_webhook = os.getenv('GOOGLE_CHAT_REPORT_WEBHOOK')
-        
-        # Developer Mapping to GitHub Usernames
         self.developer_map = {
             "Saurabh": os.getenv('GH_USER_SAURABH', 'Saurabh-IA'),
             "Raman": os.getenv('GH_USER_RAMAN', 'RmnSoni'),
@@ -77,18 +74,15 @@ class Orchestrator:
         self.start_date = os.getenv('SYNC_START_DATE') 
         self.timelines = {}
         
-        # --- OPTIMIZED: Fetch all active tasks ONCE ---
         print("ORCHESTRATOR: Initializing global capacity map...")
         self.all_active_tasks = self.gh_specialist.get_full_active_tasks()
         
         for name, github_user in self.developer_map.items():
             timeline = DeveloperTimeline(name, start_date=self.start_date)
-            # Filter the cached list for this specific user
             user_load = sum(t.get('hours', 0.0) for t in self.all_active_tasks if t['assignee'] and t['assignee'].lower() == github_user.lower())
             timeline.fill_hours(user_load)
             self.timelines[github_user] = timeline
 
-        # Tracking for detailed audit output
         self.detailed_audit_shown = set()
 
     def _load_state(self):
@@ -102,57 +96,31 @@ class Orchestrator:
         with open(self.state_file, 'w') as f: json.dump(self.state, f, indent=2)
 
     def _get_task_hash(self, task):
-        content = f"{task['content']}|{task['estimated_hours']}"
+        content = f"{task['content']}|{task.get('estimated_hours', 0)}"
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
     def _detect_priority(self, content):
-        """
-        Detects priority based on keywords.
-        urgent / 至急 (not "not urgent" / "至急ではない") -> P0
-        not urgent / 至急ではない -> P2
-        default -> P1
-        """
         content_lower = content.lower()
-        
-        is_not_urgent = "not urgent" in content_lower or "至急ではない" in content or "至急ではない" in content_lower
-        is_urgent = "urgent" in content_lower or "至急" in content or "至急" in content_lower
-        
-        if is_not_urgent:
-            return "P2"
-        if is_urgent:
-            return "P0"
+        is_not_urgent = "not urgent" in content_lower or "至急ではない" in content_lower
+        is_urgent = "urgent" in content_lower or "至急" in content_lower
+        if is_not_urgent: return "P2"
+        if is_urgent: return "P0"
         return "P1"
 
     def run(self):
         print(f"--- Starting Orchestration: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---")
+        self.stats = { "new_tasks": 0, "reassigned": 0, "status_syncs": 0, "healed_links": 0, "date_syncs": 0 }
         
-        # Stats for reporting
-        self.stats = {
-            "new_tasks": 0,
-            "reassigned": 0,
-            "status_syncs": 0,
-            "healed_links": 0,
-            "date_syncs": 0
-        }
-
         display_date = self.start_date if self.start_date else "Today"
         print(f"\n--- Team Capacity Map (Starting {display_date}) ---")
         for name, github_user in self.developer_map.items():
             timeline = self.timelines[github_user]
-            bars = ""
-            for b in timeline.buckets:
-                fill_ratio = b['used'] / 6.0
-                if fill_ratio >= 1.0: bars += "█"
-                elif fill_ratio > 0.5: bars += "▓"
-                elif fill_ratio > 0: bars += "░"
-                else: bars += "."
+            bars = "".join(["█" if b['used']/6.0 >= 1.0 else "▓" if b['used']/6.0 > 0.5 else "░" if b['used']/6.0 > 0 else "." for b in timeline.buckets])
             print(f"{name.ljust(8)} [{bars}] first day usage: {timeline.get_today_usage()}h")
         print("--------------------------------------------\n")
 
         try:
             tasks = self.ingestor.get_live_tasks()
-            print(f"Found {len(tasks)} valid tasks in Google Sheets.")
-            
             if self.git_sync:
                 sync_stats = self.git_sync.scan_and_sync(tasks)
                 if sync_stats:
@@ -160,22 +128,17 @@ class Orchestrator:
                     self.stats["healed_links"] += sync_stats.get("healed_links", 0)
                     self.stats["date_syncs"] += sync_stats.get("date_migrations", 0)
 
-            import time
             for task in tasks:
                 self.process_task(task)
-                if not self.dry_run:
-                    time.sleep(2) # Avoid hitting API limits in live run
-                else:
-                    time.sleep(1) # Faster but still safe for dry run
+                time.sleep(1 if self.dry_run else 2)
             
-            # --- SYNC REPORT ---
             if any(v > 0 for v in self.stats.values()):
                 self._send_sync_report()
 
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
             if datetime.now().hour == target_hour and self.state.get('last_report_date') != today_date:
-                self._send_daily_report(tasks)
+                self._send_daily_report([])
                 self.state['last_report_date'] = today_date
             
             self._save_state()
@@ -189,26 +152,17 @@ class Orchestrator:
         current_hash = self._get_task_hash(task)
         
         if task_id and (task_id.startswith("http") or "#" in task_id):
-            # --- AUTO-READY TRIGGER (Sub-issue check) ---
-            # If all sub-issues are closed, move parent to 'Ready'
             try:
-                # Extract issue number
                 match = re.search(r'/issues/(\d+)', task_id)
                 if match:
                     issue_num = int(match.group(1))
                     gh_data = self.gh_specialist.get_project_item_data(issue_num, 4)
                     if gh_data and gh_data.get('Status') == "To Triage":
-                        title = gh_data.get('Title')
-                        if self.gh_specialist.get_child_issues_status(title):
-                            print(f"AUTO-READY: All sub-issues closed for #{issue_num}. Moving to 'Ready'.")
+                        if self.gh_specialist.get_child_issues_status(gh_data.get('Title')):
+                            print(f"AUTO-READY: All sub-issues closed for #{issue_num}. Moving to 'Backlog'.")
                             if not self.dry_run:
-                                # We need to add 'Ready' option ID to GitHubSpecialist later, 
-                                # using 'Backlog' as a fallback for now
-                                ready_opt = "f75ad846" # 'Backlog' in Project 4
-                                self.gh_specialist.update_field(4, gh_data['item_id'], 'status', ready_opt, is_option=True)
-            except Exception as e:
-                print(f"DEBUG: Ready trigger failed: {e}")
-
+                                self.gh_specialist.update_field(4, gh_data['item_id'], 'status', "f75ad846", is_option=True)
+            except Exception as e: print(f"DEBUG: Ready trigger failed: {e}")
             if self.state.get(task_id) == current_hash: return
             self.state[task_id] = current_hash
             return
@@ -221,157 +175,90 @@ class Orchestrator:
         if best_dev:
             start_date, end_date = self.timelines[best_dev['id']].fill_hours_with_dates(task['estimated_hours'])
             priority = self._detect_priority(task['content'])
-            
-            # --- CONSISTENT TITLE PREFIXING ---
             summary = f"[MAINTENANCE] {ai_summary} ({romaji_name} - #{task['id']})"
-            
-            # --- INTELLIGENT REPO ROUTING ---
             target_repo = "member"
-            content_lower = task['content'].lower()
-            if "bohr" in content_lower or "bohr-individual" in content_lower:
-                target_repo = "bohr-individual"
+            if "bohr" in task['content'].lower(): target_repo = "bohr-individual"
             
             if self.dry_run:
-                print(f"\n[DRY RUN] NEW TASK CREATION FLOW for Task {task['id']} in {target_repo}:")
-                print(f"  1. Parent Issue:  {summary} (@{best_dev['id']}) [Priority: {priority}]")
-                print(f"  2. Sub-Issue:     Understand the request: {ai_summary} (0.33h)")
-                print(f"  3. Project Setup: Status: To Triage, Level: Parent/Child, Dates: {start_date} to {end_date}")
-                print(f"  4. Sheet Update:  Status: Open, URL: [MOCK_URL], PIC: {best_dev['name']}")
+                print(f"[DRY RUN] Would create Parent/Sub issues for Task {task['id']} ({start_date})")
                 return
 
             try:
-                # Phase 1: Create GitHub Issue (Parent) in the TARGET REPO
-                issue = self.gh_specialist.create_issue(
-                    repo=target_repo, title=summary, body=full_desc, assignee=best_dev['id'], labels=["staff-report"]
-                )
+                # Phase 1: Parent
+                issue = self.gh_specialist.create_issue(repo=target_repo, title=summary, body=full_desc, assignee=best_dev['id'], labels=["staff-report"])
                 issue_url = issue['html_url']
-                parent_node_id = issue['node_id']
-                parent_number = issue['number']
+                p_node = issue['node_id']
+                item_p4 = self.gh_specialist.add_to_project(p_node, 4)
+                self.gh_specialist.update_field(4, item_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
+                self.gh_specialist.update_field(4, item_p4, 'start_date', start_date)
+                self.gh_specialist.update_field(4, item_p4, 'end_date', end_date)
+                self.gh_specialist.update_field(4, item_p4, 'priority', self.gh_specialist.projects[4]['options'][f'priority_{priority.lower()}'], is_option=True)
+                self.gh_specialist.update_field(4, item_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
+                self.gh_specialist.update_field(4, item_p4, 'hours', task['estimated_hours'])
                 
-                # --- PROJECT 4 (Maintenance) ---
-                item_id_p4 = self.gh_specialist.add_to_project(parent_node_id, 4)
-                self.gh_specialist.update_field(4, item_id_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
-                self.gh_specialist.update_field(4, item_id_p4, 'start_date', start_date)
-                self.gh_specialist.update_field(4, item_id_p4, 'end_date', end_date)
-                self.gh_specialist.update_field(4, item_id_p4, 'priority', self.gh_specialist.projects[4]['options'][f'priority_{priority.lower()}'], is_option=True)
-                self.gh_specialist.update_field(4, item_id_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
-                self.gh_specialist.update_field(4, item_id_p4, 'hours', task['estimated_hours'])
-                
-                # --- PROJECT 3 (Overall Project Management) ---
-                item_id_p3 = self.gh_specialist.add_to_project(parent_node_id, 3)
-                # Set custom field 'project' to 'Maintenance'
-                self.gh_specialist.update_field(3, item_id_p3, 'project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
-                # Set Dates in Project 3
-                self.gh_specialist.update_field(3, item_id_p3, 'start_date', start_date)
-                self.gh_specialist.update_field(3, item_id_p3, 'end_date', end_date)
+                # Project 3
+                item_p3 = self.gh_specialist.add_to_project(p_node, 3)
+                self.gh_specialist.update_field(3, item_p3, 'project', self.gh_specialist.projects[3]['options']['project_maintenance'], is_option=True)
+                self.gh_specialist.update_field(3, item_p3, 'start_date', start_date)
+                self.gh_specialist.update_field(3, item_p3, 'end_date', end_date)
 
-                # Phase 2: Create Sub-issue (Understand the Request)
-                sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{parent_number})"
-                sub_body = f"Mandatory 20-minute task to review and clarify requirements for #{parent_number}."
-                sub_issue = self.gh_specialist.create_issue(
-                    repo=target_repo, title=sub_title, body=sub_body, assignee=best_dev['id'], labels=["staff-report"]
-                )
-                sub_node_id = sub_issue['node_id']
-                sub_item_id = self.gh_specialist.add_to_project(sub_node_id, 4)
+                # Phase 2: Sub-issue
+                sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{issue['number']})"
+                sub_issue = self.gh_specialist.create_issue(repo=target_repo, title=sub_title, body="Initial review task.", assignee=best_dev['id'])
+                self.gh_specialist.link_subissue(p_node, sub_issue['node_id'])
+                sub_item = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
+                self.gh_specialist.update_field(4, sub_item, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
+                self.gh_specialist.update_field(4, sub_item, 'hours', 0.33)
+                self.gh_specialist.update_field(4, sub_item, 'start_date', start_date)
+                self.gh_specialist.update_field(4, sub_item, 'end_date', start_date)
 
-                # Natively link sub-issue to parent
-                self.gh_specialist.link_subissue(parent_node_id, sub_node_id)
-
-                
-                # Update Sub-issue Fields (Project 4 only)
-                self.gh_specialist.update_field(4, sub_item_id, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
-                self.gh_specialist.update_field(4, sub_item_id, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
-                self.gh_specialist.update_field(4, sub_item_id, 'hours', 0.33)
-                # Link to Parent
-                self.gh_specialist.update_field(4, sub_item_id, 'parent_issue', summary)
-
-                # Write back to Sheet
                 self.ingestor.write_backlog_id(task['anchors'], issue_url)
-                self.ingestor.write_status(task['anchors'], "Open") # "To Triage" maps to "Open" in sheet
-                if hasattr(self.ingestor, 'write_pic'): self.ingestor.write_pic(task['anchors'], best_dev['name'])
-                if hasattr(self.ingestor, 'write_dates'): self.ingestor.write_dates(task['anchors'], start_date, end_date)
-                
+                self.ingestor.write_status(task['anchors'], "Open")
                 self.stats["new_tasks"] += 1
                 self.state[issue_url] = current_hash
                 print(f"SUCCESS: Created {issue_url}")
-            except Exception as e:
-                print(f"ERROR: Failed to process task {task['id']}: {str(e)}")
-        else:
-            print(f"OVERLOAD: No capacity for Task {task['id']}.")
+            except Exception as e: print(f"ERROR: Failed to process task {task['id']}: {e}")
+        else: print(f"OVERLOAD: No capacity for Task {task['id']}.")
 
     def _find_best_dev(self, hours):
-        """
-        Finds the dev who can finish earliest.
-        PRIORITY: Prioritize the team (Saurabh, Raman, Ewan).
-        CHOO: Only assign to Choo if the team is completely booked for 14 days.
-        """
         team_options = []
         choo_option = None
-
         for github_user, timeline in self.timelines.items():
             finish_date = timeline.peek_fill(hours)
             if finish_date:
                 name = [k for k, v in self.developer_map.items() if v == github_user][0]
                 option = {"name": name, "id": github_user, "finish_date": finish_date}
-                
-                if name == "Choo":
-                    choo_option = option
-                else:
-                    team_options.append(option)
-        
-        # 1. Try assigning to the team first (earliest finish date)
-        if team_options:
-            return sorted(team_options, key=lambda x: x['finish_date'])[0]
-        
-        # 2. If team is overloaded, return Choo's earliest date
+                if name == "Choo": choo_option = option
+                else: team_options.append(option)
+        if team_options: return sorted(team_options, key=lambda x: x['finish_date'])[0]
         return choo_option
 
     def _generate_bilingual_description(self, task):
         GID = "635134579"
         title_summary, en_translation = self._translate_and_summarize(task['content'], fallback_translation=task.get('english_translation_fallback', ''))
         romaji_name = self.name_mapping.get(task['requester'], task['requester'])
-        row = task['row_index'] + 1
+        row = task.get('row_index', 0) + 1
         sheet_link = f"https://docs.google.com/spreadsheets/d/{self.sheet_id}/edit?gid={GID}#gid={GID}&range=B{row}:C{row}"
-        
         description = f"ID: {task['id']}\nSheet Link: {sheet_link}\n\n"
-        
-        # Check if we actually got a distinct translation from Gemini
         is_fallback = en_translation.strip() == task['content'].strip()
-        
         if is_fallback:
             sheet_translation = task.get('english_translation_fallback', '').strip()
-            # If sheet translation is just a URL, treat it as a reference
             is_url_only = sheet_translation.startswith("http") and "\n" not in sheet_translation
-            
             if sheet_translation and not is_url_only:
-                description += f"## 📝 Description (Sheet Translation)\n\n{sheet_translation}\n\n"
-                description += f"## 📄 Source Content (Original)\n\n{task['content']}"
+                description += f"## 📝 Description (Sheet Translation)\n\n{sheet_translation}\n\n## 📄 Source Content (Original)\n\n{task['content']}"
             else:
                 is_likely_jp = any(ord(c) > 128 for c in task['content'][:100])
                 header = "## 📄 Source Content (Japanese)" if is_likely_jp else "## 📝 Source Content (English)"
                 description += f"{header}\n\n{task['content']}"
-                if sheet_translation:
-                     description += f"\n\n## 🔗 Reference Link\n\n{sheet_translation}"
-                if is_likely_jp:
-                    description += "\n\n> ⚠️ *Note: Automatic translation unavailable due to API limit.*"
+                if sheet_translation: description += f"\n\n## 🔗 Reference Link\n\n{sheet_translation}"
+                if is_likely_jp: description += "\n\n> ⚠️ *Note: Automatic translation unavailable due to API limit.*"
         else:
-            # Clean Gemini-generated format
-            description += f"## 📝 Description (English)\n\n{en_translation}\n\n"
-            description += f"## 📄 Source Content (Original)\n\n{task['content']}"
-            
+            description += f"## 📝 Description (English)\n\n{en_translation}\n\n## 📄 Source Content (Original)\n\n{task['content']}"
         return description, title_summary, romaji_name
 
     def _translate_and_summarize(self, text, fallback_translation=""):
         if self.client:
-            prompt = f"""
-            You are a technical coordinator. Analyze the following bug report from a Google Sheet.
-            1. If Japanese, translate to professional English. 2. If English, polish for clarity.
-            3. Provide a very concise title (3-7 words) for a GitHub Issue.
-            INPUT: {text}
-            OUTPUT FORMAT:
-            TITLE: <Concise Title>
-            TRANSLATION: <Polished/Translated English>
-            """
+            prompt = f"Technical coordinator analyzer. 1. If Japanese, translate. 2. If English, polish. 3. Concise title (3-7 words). INPUT: {text} OUTPUT: TITLE: <title> TRANSLATION: <text>"
             try:
                 response = self.client.models.generate_content(model=self.model_name, contents=prompt)
                 result = response.text.strip()
@@ -379,121 +266,66 @@ class Orchestrator:
                     title = result.split("TITLE:")[1].split("TRANSLATION:")[0].strip().replace("**", "").replace("#", "")
                     trans = result.split("TRANSLATION:")[1].strip()
                     return title, trans
-            except Exception as e:
-                if "429" not in str(e): print(f"LLM ERROR: {e}")
-
-        # --- REFINED FALLBACK LOGIC ---
+            except: pass
         first_line = text.split('\n')[0]
-        # Clean up title: no more than 60 chars, don't break words
-        if len(first_line) > 60:
-            title = first_line[:60].rsplit(' ', 1)[0] + "..."
-        else:
-            title = first_line
-            
+        title = (first_line[:60].rsplit(' ', 1)[0] + "...") if len(first_line) > 60 else first_line
         return title, text
 
     def _send_sync_report(self):
-        """Sends a concise action report to Google Chat."""
-        msg = "🔄 *Maintenance Sync Complete*\n"
-        msg += "________________________________\n"
+        msg = "🔄 *Maintenance Sync Complete*\n________________________________\n"
         if self.stats["new_tasks"] > 0: msg += f"• 🆕 Created *{self.stats['new_tasks']}* new reports\n"
         if self.stats["status_syncs"] > 0: msg += f"• 🔄 Updated *{self.stats['status_syncs']}* sheet statuses\n"
         if self.stats["date_syncs"] > 0: msg += f"• 📅 Mirrored *{self.stats['date_syncs']}* date pairs to Project 3\n"
         if self.stats["healed_links"] > 0: msg += f"• 🩹 Healed *{self.stats['healed_links']}* sub-issue links\n"
-        
-        print(f"REPORT: Sending Sync Report to Google Chat...")
-        if self.dry_run:
-            print(f"[DRY RUN] Would post sync report:\n{msg}")
-        else:
-            self._post_to_chat(msg)
+        if not self.dry_run: self._post_to_chat(msg)
+        else: print(f"[DRY RUN] Would post sync report:\n{msg}")
 
-    def _send_daily_report(self, unused_all_tasks):
-        """Focuses the daily report on Today's priority tasks and delays."""
-        today_dt = datetime.now()
-        today_str = today_dt.strftime("%Y-%m-%d")
-        
-        print("REPORT: Analyzing tasks for Today's Status Report...")
+    def _send_daily_report(self, unused):
+        today_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         active_tasks = self.gh_specialist.get_full_active_tasks()
-        
         login_to_name = {v.lower(): k for k, v in self.developer_map.items()}
-        
-        # Categorized data
-        in_progress = {} # PIC -> [Tasks]
-        delayed = {}     # PIC -> [Tasks]
-        unscheduled = [] # [Tasks]
-
+        in_progress = {}; delayed = {}; unscheduled = []
         for task in active_tasks:
-            login = (task['assignee'] or "unassigned").lower()
-            name = login_to_name.get(login, "Unassigned")
-            
-            # Date analysis
-            start = task.get('start_date')
-            end = task.get('end_date')
-            
-            task_entry = f"• *{task['project_tag']}* {task['title']}"
+            name = login_to_name.get((task['assignee'] or "unassigned").lower(), "Unassigned")
+            start = task.get('start_date'); end = task.get('end_date')
+            url = task.get('url', '#')
+            task_entry = f"• *{task['project_tag']}* <{url}|{task['title']}>"
             if start: task_entry += f" [{start} → {end}]"
-
-            if not start or not end:
-                unscheduled.append(f"• *{task['project_tag']}* {task['title']} (@{name})")
+            if not start or not end: unscheduled.append(f"• *{task['project_tag']}* <{url}|{task['title']}> (@{name})")
             else:
                 try:
-                    start_dt = datetime.strptime(start, "%Y-%m-%d")
-                    end_dt = datetime.strptime(end, "%Y-%m-%d")
-                    
-                    if end_dt < today_dt.replace(hour=0, minute=0, second=0, microsecond=0):
+                    s_dt = datetime.strptime(start, "%Y-%m-%d"); e_dt = datetime.strptime(end, "%Y-%m-%d")
+                    if e_dt < today_dt:
                         if name not in delayed: delayed[name] = []
                         delayed[name].append(task_entry)
-                    elif start_dt <= today_dt <= (end_dt + timedelta(days=1)):
+                    elif s_dt <= today_dt <= e_dt:
                         if name not in in_progress: in_progress[name] = []
                         in_progress[name].append(task_entry)
-                except:
-                    unscheduled.append(f"• *{task['project_tag']}* {task['title']} (@{name})")
-
-        # 3. Build the Message
-        msg = f"📅 *Daily Operations Report ({today_str})*\n"
-        msg += "________________________________\n\n"
-
+                except: unscheduled.append(f"• *{task['project_tag']}* <{url}|{task['title']}> (@{name})")
+        msg = f"📅 *Daily Operations Report ({today_dt.strftime('%Y-%m-%d')})*\n________________________________\n\n"
         if in_progress:
             msg += "🚀 *IN PROGRESS TODAY*\n"
-            for name in sorted(in_progress.keys()):
-                mention = f"<users/{self.chat_ids.get(name, name)}>" if self.chat_ids.get(name, "").replace(".","").isdigit() else f"*{name}*"
-                msg += f"{mention}\n" + "\n".join(in_progress[name]) + "\n\n"
-
+            for n in sorted(in_progress.keys()):
+                m = f"<users/{self.chat_ids.get(n, n)}>" if self.chat_ids.get(n, "").replace(".","").isdigit() else f"*{n}*"
+                msg += f"{m}\n" + "\n".join(in_progress[n]) + "\n\n"
         if delayed:
             msg += "⚠️ *DELAYED TASKS*\n"
-            for name in sorted(delayed.keys()):
-                mention = f"<users/{self.chat_ids.get(name, name)}>" if self.chat_ids.get(name, "").replace(".","").isdigit() else f"*{name}*"
-                msg += f"{mention}\n" + "\n".join(delayed[name]) + "\n\n"
-
+            for n in sorted(delayed.keys()):
+                m = f"<users/{self.chat_ids.get(n, n)}>" if self.chat_ids.get(n, "").replace(".","").isdigit() else f"*{n}*"
+                msg += f"{m}\n" + "\n".join(delayed[n]) + "\n\n"
         if unscheduled:
-            msg += "🔍 *NEEDS SCHEDULING*\n"
-            msg += "\n".join(unscheduled[:10]) # Limit to 10 for brevity
-            if len(unscheduled) > 10: msg += f"\n_...and {len(unscheduled)-10} more_"
-            msg += "\n\n"
-
-        if not any([in_progress, delayed, unscheduled]):
-            msg += "✅ No active parent tasks found!"
-
-        print(f"REPORT: Sending focused Operations Report to Google Chat...")
-        if self.dry_run:
-            print(f"[DRY RUN] Would post focused report:\n{msg}")
-        else:
-            self._post_to_chat(msg)
+            msg += "🔍 *NEEDS SCHEDULING*\n" + "\n".join(unscheduled[:10]) + (f"\n_...and {len(unscheduled)-10} more_" if len(unscheduled)>10 else "") + "\n\n"
+        if not any([in_progress, delayed, unscheduled]): msg += "✅ No active parent tasks found!"
+        if not self.dry_run: self._post_to_chat(msg)
+        else: print(f"[DRY RUN] Would post focused report:\n{msg}")
 
     def _post_to_chat(self, text):
-        if not self.chat_webhook: 
-            print("DEBUG: No webhook configured.")
-            return
+        if not self.chat_webhook: return
         try:
             import requests
-            print(f"DEBUG: Posting to webhook (length: {len(text)})...")
             r = requests.post(self.chat_webhook, json={"text": text})
-            if r.status_code != 200:
-                print(f"WEBHOOK ERROR: {r.status_code} - {r.text}")
-            else:
-                print("WEBHOOK SUCCESS: Message delivered.")
-        except Exception as e:
-            print(f"WEBHOOK EXCEPTION: {e}")
+            if r.status_code != 200: print(f"WEBHOOK ERROR: {r.status_code} - {r.text}")
+        except Exception as e: print(f"WEBHOOK EXCEPTION: {e}")
 
 if __name__ == "__main__":
     Orchestrator().run()
