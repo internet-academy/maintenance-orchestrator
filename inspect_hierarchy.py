@@ -10,61 +10,62 @@ ORG = "internet-academy"
 
 def inspect_hierarchy():
     headers = {"Authorization": f"token {TOKEN}"}
+    items = []
+    cursor = None
     
-    # Query to fetch items from Project 4 and check their sub-issue relationship
-    query = """
-    query($org: String!) {
-      organization(login: $org) {
-        projectV2(number: 4) {
-          items(first: 50) {
-            nodes {
-              id
-              content {
-                ... on Issue {
-                  number
-                  title
-                  subIssues(first: 10) {
-                    nodes {
+    print(f"Fetching all items from Project 4...")
+    while True:
+        query = """
+        query($org: String!, $cursor: String) {
+          organization(login: $org) {
+            projectV2(number: 4) {
+              items(first: 100, after: $cursor) {
+                pageInfo { hasNextPage endCursor }
+                nodes {
+                  id
+                  content {
+                    ... on Issue {
                       number
                       title
+                      subIssues(first: 10) { nodes { number title } }
+                      parent { number title }
                     }
                   }
-                  parent {
-                    number
-                    title
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
+                      ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
+                    }
                   }
-                }
-              }
-              fieldValues(first: 20) {
-                nodes {
-                  ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
-                  ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } }
                 }
               }
             }
           }
         }
-      }
-    }
-    """
-    
-    response = requests.post("https://api.github.com/graphql", headers=headers, json={"query": query, "variables": {"org": ORG}})
-    data = response.json()
-    
-    if "errors" in data:
-        print("GraphQL Errors:", json.dumps(data["errors"], indent=2))
-        return
+        """
+        response = requests.post("https://api.github.com/graphql", headers=headers, json={"query": query, "variables": {"org": ORG, "cursor": cursor}})
+        data = response.json()
+        
+        if "errors" in data:
+            print("GraphQL Errors:", json.dumps(data["errors"], indent=2))
+            break
 
-    items = data.get("data", {}).get("organization", {}).get("projectV2", {}).get("items", {}).get("nodes", [])
-    
-    print(f"Inspecting {len(items)} items in Project 4 hierarchy...\n")
+        project_data = data.get("data", {}).get("organization", {}).get("projectV2", {}).get("items", {})
+        nodes = project_data.get("nodes", [])
+        items.extend(nodes)
+        
+        if not project_data.get("pageInfo", {}).get("hasNextPage"):
+            break
+        cursor = project_data["pageInfo"]["endCursor"]
+
+    print(f"Inspecting {len(items)} items total...\n")
     
     for item in items:
         content = item.get('content')
         if not content: continue
         
-        title = content.get('title')
-        num = content.get('number')
+        title = content.get('title', 'Unknown')
+        num = content.get('number', 0)
         
         # Check native GitHub relationship
         parent = content.get('parent')
