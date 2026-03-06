@@ -747,6 +747,6 @@
 - **kikuichimonji/apps/analytics/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/core/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **kikuichimonji/apps/ia_admin/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
-- **kikuichimonji/apps/reservation/views/views.py**: Error: 504 Deadline Exceeded
+- **kikuichimonji/apps/reservation/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **bohr/apps/bohr_core/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
 - **bohr/apps/student/views/views.py**: Error: 404 models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.
