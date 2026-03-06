@@ -100,19 +100,18 @@ class GitSync:
                 try:
                     parent_title = gh_data.get('Title')
                     if not self.gh_specialist.get_child_issues_status(parent_title):
-                        # Use the global search method which supports the 'q' syntax correctly
+                        print(f"    - HEALING: Searching for orphaned sub-issues for #{issue_num}...")
                         child_search_query = f'repo:{self.gh_specialist.org}/member "Sub-issue for #{issue_num}" is:open'
                         search_results = self.gh_client.search_issues(query=child_search_query)
                         
                         for child in search_results:
-                            # Verify double-check title to be absolute
                             if f"Sub-issue for #{issue_num}" in child.title:
-                                print(f"    - HEALING: Re-linking Child #{child.number} to Parent #{issue_num}")
-                                self.gh_specialist.link_subissue(
-                                    self.gh_specialist.get_issue_node_id("member", issue_num),
-                                    child.node_id
-                                )
-                                stats["healed_links"] += 1
+                                # 1. Find child's ITEM ID in Project 4
+                                child_data = self.gh_specialist.get_project_item_data(child.number, 4)
+                                if child_data:
+                                    print(f"    - RE-LINKING: Child #{child.number} to Parent #{issue_num} via Project Field")
+                                    self.gh_specialist.update_field(4, child_data['item_id'], 'parent_issue', parent_title)
+                                    stats["healed_links"] += 1
                 except Exception as e:
                     print(f"DEBUG: Hierarchy healing failed for #{issue_num}: {e}")
 

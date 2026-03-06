@@ -214,8 +214,11 @@ class Orchestrator:
                 # Phase 2: Sub-issue
                 sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{issue['number']})"
                 sub_issue = self.gh_specialist.create_issue(repo=target_repo, title=sub_title, body="Initial review task.", assignee=best_dev['id'])
-                self.gh_specialist.link_subissue(p_node, sub_issue['node_id'])
-                sub_item = self.gh_specialist.add_to_project(sub_issue['node_id'], 4)
+                sub_node_id = sub_issue['node_id']
+                sub_item = self.gh_specialist.add_to_project(sub_node_id, 4)
+                
+                # Link via Project Field
+                self.gh_specialist.update_field(4, sub_item, 'parent_issue', summary)
                 self.gh_specialist.update_field(4, sub_item, 'level', self.gh_specialist.projects[4]['options']['level_child'], is_option=True)
                 self.gh_specialist.update_field(4, sub_item, 'hours', 0.33)
                 self.gh_specialist.update_field(4, sub_item, 'start_date', start_date)
