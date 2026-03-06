@@ -232,20 +232,23 @@ class Orchestrator:
             
             for task in dev_tasks:
                 current_hash = hashlib.sha256(task['content'].encode()).hexdigest()
-                # Unique state key for dev requests
                 state_key = f"DEV_{task['id']}"
                 
                 if self.state.get(state_key) == current_hash:
                     continue
                     
-                print(f"CREATING: [NEW DEV] Request {task['id']} - {task['title']}")
-                
-                # Generate specialized bilingual content for dev requests
                 full_desc, ai_summary, romaji_name = self._generate_bilingual_description(task)
+                priority = self._detect_priority(task['content'])
                 summary = f"[NEW DEV] {ai_summary} ({romaji_name} - #{task['id']})"
                 
                 if self.dry_run:
-                    print(f"[DRY RUN] Would create Parent/Sub issues for {task['id']}")
+                    print(f"\n[DRY RUN] NEW DEVELOPMENT PLAN for Sheet {task['id']}:")
+                    print(f"  - Parent Issue:  {summary}")
+                    print(f"  - Sub-Issue:     Understand the request: {ai_summary}")
+                    print(f"  - Labels:        ['staff-report', 'new-development']")
+                    print(f"  - Project 3:     Tagged as 'New Development' (ID: {self.gh_specialist.projects[3]['options']['project_new_dev']})")
+                    print(f"  - Project 4:     Initial Status: To Triage, Level: Parent/Child")
+                    print(f"  - Description Preview (English):\n{full_desc.split('## 📄 Source Content')[0]}\n")
                     continue
                     
                 try:
