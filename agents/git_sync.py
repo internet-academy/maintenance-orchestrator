@@ -17,11 +17,13 @@ class GitSync:
     def scan_and_sync(self, tasks):
         """
         Pulls Status, PIC, and Dates from GitHub Project and updates the Sheet.
+        Returns stats about actions taken.
         """
         print(f"GIT: Syncing {len(tasks)} tasks from GitHub to Sheet...")
         
+        stats = {"status_changes": 0, "pic_updates": 0, "date_migrations": 0, "healed_links": 0}
+
         # Build Name -> Human Name map for PIC write-back
-        # (Inverse of developer_map in orchestrator)
         user_to_name = {
             os.getenv('GH_USER_SAURABH', 'Saurabh-IA').lower(): "Saurabh",
             os.getenv('GH_USER_RAMAN', 'RmnSoni').lower(): "Raman",
@@ -62,6 +64,7 @@ class GitSync:
                     print(f"  - SYNC: Issue #{issue_num} Status: {gh_status} -> Sheet: {new_sheet_status}")
                     if not self.dry_run:
                         self.ingestor.write_status(task['anchors'], new_sheet_status)
+                        stats["status_changes"] += 1
 
                 # 4. Pull PIC/Assignee
                 gh_assignee = (gh_data.get('assignee') or "").lower()
@@ -72,6 +75,7 @@ class GitSync:
                     print(f"  - SYNC: Issue #{issue_num} Assignee: {gh_assignee} -> Sheet: {new_pic_name}")
                     if not self.dry_run:
                         self.ingestor.write_pic(task['anchors'], new_pic_name)
+                        stats["pic_updates"] += 1
 
                 # 5. Pull Dates from Project 4
                 gh_start = gh_data.get('Start date')
@@ -88,6 +92,7 @@ class GitSync:
                                 print(f"  - AUTO-SYNC: Copying dates for #{issue_num} from P4 to P3")
                                 self.gh_specialist.update_field(3, p3_data['item_id'], 'start_date', gh_start)
                                 self.gh_specialist.update_field(3, p3_data['item_id'], 'end_date', gh_end)
+                                stats["date_migrations"] += 1
                         except Exception as e:
                             print(f"DEBUG: P3 auto-sync failed for #{issue_num}: {e}")
 
@@ -105,8 +110,11 @@ class GitSync:
                             parent_node_id = self.gh_specialist.get_issue_node_id("member", issue_num)
                             print(f"    - RE-LINKING: Child #{item['number']} to Parent #{issue_num}")
                             self.gh_specialist.link_subissue(parent_node_id, child_node_id)
+                            stats["healed_links"] += 1
                 except Exception as e:
                     print(f"DEBUG: Hierarchy healing failed for #{issue_num}: {e}")
 
             except Exception as e:
                 print(f"GIT SYNC ERROR for Issue #{issue_num}: {e}")
+        
+        return stats
