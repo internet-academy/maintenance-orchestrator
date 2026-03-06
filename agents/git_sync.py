@@ -60,7 +60,7 @@ class GitSync:
                 elif gh_status == "In progress" or has_active_pr: 
                     new_sheet_status = "in progress"
                 elif gh_status in ["To Triage", "Backlog", "Ready"]: 
-                    new_sheet_status = "Open"
+                    new_sheet_status = "not started"
 
                 
                 if new_sheet_status and new_sheet_status != sheet_status:
