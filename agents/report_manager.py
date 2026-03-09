@@ -68,7 +68,8 @@ class ReportManager:
             # 2. Add "Surprises" (Done but NOT in plan)
             for t in gh_tasks:
                 if t['title'].strip() not in seen_titles:
-                    gh_status = self.gh.get_project_item_data(t['number'], 4).get('Status')
+                    gh_item_data = self.gh.get_project_item_data(t['number'], 4)
+                    gh_status = gh_item_data.get('Status') if gh_item_data else "Open"
                     if gh_status == "Done":
                         deadline = self._format_deadline(t.get('end_date'))
                         last_week_results.append([
@@ -84,7 +85,12 @@ class ReportManager:
 
             # --- NEXT WEEK'S PLAN LOGIC ---
             next_week_plan = []
-            open_tasks = [t for t in gh_tasks if self.gh.get_project_item_data(t['number'], 4).get('Status') != "Done"]
+            open_tasks = []
+            for t in gh_tasks:
+                gh_item_data = self.gh.get_project_item_data(t['number'], 4)
+                gh_status = gh_item_data.get('Status') if gh_item_data else "Open"
+                if gh_status != "Done":
+                    open_tasks.append(t)
             
             for i, t in enumerate(open_tasks[:4]):
                 deadline = self._format_deadline(t.get('end_date'))
