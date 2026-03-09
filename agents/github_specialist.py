@@ -45,7 +45,8 @@ class GitHubSpecialist:
                     "hours": "PVTF_lADOA1jKuM4BQoqlzg-sq_I",
                     "priority": "PVTSSF_lADOA1jKuM4BQoqlzg-sq_A",
                     "level": "PVTSSF_lADOA1jKuM4BQoqlzg-svGQ",
-                    "parent_issue": "PVTF_lADOA1jKuM4BQoqlzg-squo"
+                    "parent_issue": "PVTF_lADOA1jKuM4BQoqlzg-squo",
+                    "requester": "PVTF_lADOA1jKuM4BQoqlzg_G1E4"
                 },
                 "options": {
                     "status_to_triage": "23799a6c",
