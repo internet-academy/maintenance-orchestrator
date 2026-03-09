@@ -12,7 +12,6 @@ class ReportManager:
         self.sheet_id = '1x0IXmY7cSlN2kRyOVRh_ZbdgPHn8bVaqfu5PAiNxs5M'
         
         # Empirical coordinates from Weekly Report tab (1-based for gspread)
-        # Each block is assumed to have 3-4 rows of tasks based on sheet scan
         self.pic_map = {
             "Choo":    {"last": (5, 1),  "next": (12, 1),  "gh": os.getenv('GH_USER_CHOO', 'young-min-choo')},
             "Saurabh": {"last": (5, 10), "next": (12, 10), "gh": os.getenv('GH_USER_SAURABH', 'Saurabh-IA')},
@@ -35,28 +34,31 @@ class ReportManager:
         for name, config in self.pic_map.items():
             print(f"  - Processing {name}...")
             
-            # A. Shift current 'Next' to 'Last'
-            # We read the 'Next' block (Rows 12-15 or 27-30, 6 columns)
+            # A. Read current 'Next' block to prepare for shifting
             next_row, next_col = config['next']
-            next_block = wr_tab.get_values(f"{gspread_col(next_col)}{next_row}:{gspread_col(next_col+5)}{next_row+3}")
+            # We fetch 4 rows of data for the block
+            current_next_block = wr_tab.get_values(f"{gspread_col(next_col)}{next_row}:{gspread_col(next_col+5)}{next_row+3}")
             
-            # Mark completion status based on GitHub or existing '〇'
-            processed_last_block = []
-            for row in next_block:
+            # Clean and prepare shifted block
+            # We assume anything in 'Next' that wasn't empty is now 'Last'
+            shifted_last_block = []
+            existing_planned_titles = []
+            for row in current_next_block:
                 if not any(row): continue
-                # Update status to 〇 if it was completed (Dummy logic for now, can be refined)
-                # For now, we preserve the content
-                processed_last_block.append(row)
+                shifted_last_block.append(row)
+                if len(row) > 1: existing_planned_titles.append(row[1].strip())
             
-            if not self.dry_run and processed_last_block:
+            if not self.dry_run and shifted_last_block:
                 last_row, last_col = config['last']
-                wr_tab.update(f"{gspread_col(last_col)}{last_row}:{gspread_col(last_col+5)}{last_row+len(processed_last_block)-1}", processed_last_block)
+                # Clear last block first
+                wr_tab.update(f"{gspread_col(last_col)}{last_row}:{gspread_col(last_col+5)}{last_row+3}", [[""]*6]*4)
+                # Write shifted data
+                wr_tab.update(f"{gspread_col(last_col)}{last_row}:{gspread_col(last_col+5)}{last_row+len(shifted_last_block)-1}", shifted_last_block)
 
-            # B. Pull Fresh 'Next' from GitHub
+            # B. Pull Fresh 'Next' from GitHub (all non-Done tasks)
             gh_tasks = self._get_filtered_gh_tasks(config['gh'])
             new_next_block = []
-            for i, t in enumerate(gh_tasks[:4]): # Max 4 tasks per PIC for the block
-                # Format: [No, Title, Requester, Project, PIC, Deadline]
+            for i, t in enumerate(gh_tasks[:4]): 
                 deadline = t.get('end_date', 'TBD')
                 if deadline != 'TBD':
                     try:
@@ -64,9 +66,14 @@ class ReportManager:
                         deadline = dt.strftime("%m/%d(%a)")
                     except: pass
                 
+                title = t['title']
+                # Visual differentiation: If this wasn't in our plan, mark it as 🆕
+                if title.strip() not in existing_planned_titles:
+                    title = "🆕 " + title
+
                 new_next_block.append([
                     str(i+1), 
-                    t['title'], 
+                    title, 
                     "Choo", # Default requester
                     t['project_tag'], 
                     name, 
@@ -74,13 +81,12 @@ class ReportManager:
                 ])
             
             if not self.dry_run:
-                # Clear old Next block first
+                # Clear and Update Next block
                 wr_tab.update(f"{gspread_col(next_col)}{next_row}:{gspread_col(next_col+5)}{next_row+3}", [[""]*6]*4)
                 if new_next_block:
                     wr_tab.update(f"{gspread_col(next_col)}{next_row}:{gspread_col(next_col+5)}{next_row+len(new_next_block)-1}", new_next_block)
 
-            # Collect for the final tables
-            all_last_week_tasks.extend(processed_last_block)
+            all_last_week_tasks.extend(shifted_last_block)
             all_next_week_tasks.extend(new_next_block)
 
         # 2. Update 'Tables for Weekly Report' (L16:S31 and L34:S46)
@@ -88,22 +94,34 @@ class ReportManager:
         print("REPORT MANAGER: Thursday Sync Complete. ✅")
 
     def _get_filtered_gh_tasks(self, github_user):
+        """Fetches all tasks for a user that are NOT 'Done'."""
         all_tasks = self.gh.get_full_active_tasks()
-        return [t for t in all_tasks if t['assignee'] and t['assignee'].lower() == github_user.lower() and 'error' not in t['labels']]
+        filtered = []
+        for t in all_tasks:
+            if t['assignee'] and t['assignee'].lower() == github_user.lower():
+                # Get full data to check Status
+                gh_data = self.gh.get_project_item_data(t['number'], 4)
+                if gh_data and gh_data.get('Status') != "Done" and 'error' not in t['labels']:
+                    filtered.append(t)
+        return filtered
 
     def _update_final_tables(self, twr_tab, last_tasks, next_tasks):
         if self.dry_run:
-            print(f"[DRY RUN] Would update final tables with {len(last_tasks)} completed and {len(next_tasks)} planned tasks.")
+            print(f"\n--- FINAL TABLES PREVIEW ---")
+            print(f"COMPLETED TASKS (Count: {len(last_tasks)}):")
+            for i, r in enumerate(last_tasks): print(f"  {i+1}. {r}")
+            print(f"\nPLANNED TASKS (Count: {len(next_tasks)}):")
+            for i, r in enumerate(next_tasks): print(f"  {i+1}. {r}")
             return
             
         # Update Last Weeks Results (L18 onwards)
-        last_formatted = [[i+1] + row for i, row in enumerate(last_tasks)]
+        last_formatted = [[i+1] + row[1:] for i, row in enumerate(last_tasks)]
         twr_tab.update("L18:S31", [[""]*8]*14) # Clear
         if last_formatted:
             twr_tab.update(f"L18:S{18+len(last_formatted)-1}", last_formatted)
             
         # Update Next Weeks Results (L36 onwards)
-        next_formatted = [[i+1] + row for i, row in enumerate(next_tasks)]
+        next_formatted = [[i+1] + row[1:] for i, row in enumerate(next_tasks)]
         twr_tab.update("L36:S46", [[""]*8]*11) # Clear
         if next_formatted:
             twr_tab.update(f"L36:S{36+len(next_formatted)-1}", next_formatted)
