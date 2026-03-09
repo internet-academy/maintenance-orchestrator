@@ -108,19 +108,31 @@ class ReportManager:
                 if subtasks:
                     full_title = f"{t['title']}:\n" + "\n".join([f" {i+1}. {s['title']}" for i, s in enumerate(subtasks)])
                 
-                # 2. Product Mapping
+                # 2. Product & Requester Mapping
                 repo_url = t.get('url', '').lower()
                 product = "Other"
-                if "member" in repo_url or "bohr-individual" in repo_url: product = "Bohr Ind"
-                elif "bohr-corporate" in repo_url: product = "Bohr Corp"
                 
-                if "kiku" in t['title'].lower() or "kiku" in t['project_tag'].lower(): product = "Kikuichimonji"
+                # Check for dynamic requester from GitHub field
+                gh_item_data = self.gh.get_project_item_data(t['number'], 4)
+                requester = gh_item_data.get('Requester') if gh_item_data else None
+                
+                if "member" in repo_url or "bohr-individual" in repo_url: 
+                    product = "Bohr Ind"
+                    if not requester: requester = "Sakamoto" # Fallback for Bohr Ind
+                elif "bohr-corporate" in repo_url: 
+                    product = "Bohr Corp"
+                
+                if "kiku" in t['title'].lower() or "kiku" in t['project_tag'].lower(): 
+                    product = "Kikuichimonji"
+                
+                if not requester: requester = "Choo" # Absolute fallback
 
                 formatted.append({
                     "number": t['number'],
                     "clean_title": t['title'].strip(),
                     "full_formatted_title": full_title,
                     "product": product,
+                    "requester": requester,
                     "raw_deadline": t['end_date'],
                     "formatted_deadline": self._format_deadline(t.get('end_date')),
                     "title": t['title']
