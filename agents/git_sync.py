@@ -82,19 +82,38 @@ class GitSync:
                         self.ingestor.write_pic(task['anchors'], new_pic_name)
                         stats["pic_updates"] += 1
 
-                gh_start = gh_data.get('Start date')
-                gh_end = gh_data.get('End date')
-                if gh_start and gh_end:
-                    if not self.dry_run:
-                        self.ingestor.write_dates(task['anchors'], gh_start, gh_end)
-                        try:
-                            p3_data = self.gh_specialist.get_project_item_data(issue_num, project_number=3)
-                            if p3_data and (not p3_data.get('Start date') or not p3_data.get('End date')):
-                                print(f"  - AUTO-SYNC: Copying dates for #{issue_num} from P4 to P3")
-                                self.gh_specialist.update_field(3, p3_data['item_id'], 'start_date', gh_start)
-                                self.gh_specialist.update_field(3, p3_data['item_id'], 'end_date', gh_end)
+                # 5. BIDIRECTIONAL DATE SYNC (P4 <-> P3 <-> Sheet)
+                p4_start = gh_data.get('Start date')
+                p4_end = gh_data.get('End date')
+                
+                # Fetch Project 3 Data for comparison
+                p3_data = self.gh_specialist.get_project_item_data(issue_num, project_number=3)
+                p3_start = p3_data.get('Start date') if p3_data else None
+                p3_end = p3_data.get('End date') if p3_data else None
+
+                # SYNC LOGIC:
+                # 1. If P4 has dates and P3 doesn't (or they differ) -> Mirror P4 to P3
+                if p4_start and p4_end:
+                    if p4_start != p3_start or p4_end != p3_end:
+                        if p3_data:
+                            print(f"  - DATE SYNC: Mirroring P4 Dates to P3 for #{issue_num}")
+                            if not self.dry_run:
+                                self.gh_specialist.update_field(3, p3_data['item_id'], 'start_date', p4_start)
+                                self.gh_specialist.update_field(3, p3_data['item_id'], 'end_date', p4_end)
                                 stats["date_migrations"] += 1
-                        except: pass
+                    
+                    # Also sync to Google Sheet
+                    if not self.dry_run:
+                        self.ingestor.write_dates(task['anchors'], p4_start, p4_end)
+
+                # 2. If P3 has dates and P4 doesn't -> Mirror P3 to P4
+                elif p3_start and p3_end and not (p4_start and p4_end):
+                    print(f"  - DATE SYNC: Mirroring P3 Dates to P4 for #{issue_num}")
+                    if not self.dry_run:
+                        self.gh_specialist.update_field(4, gh_data['item_id'], 'start_date', p3_start)
+                        self.gh_specialist.update_field(4, gh_data['item_id'], 'end_date', p3_end)
+                        self.ingestor.write_dates(task['anchors'], p3_start, p3_end)
+                        stats["date_migrations"] += 1
 
                 # 6. HEALING & CASCADING
                 try:
