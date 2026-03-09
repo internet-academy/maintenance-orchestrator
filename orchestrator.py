@@ -210,6 +210,7 @@ class Orchestrator:
                 self.gh_specialist.update_field(4, item_p4, 'priority', self.gh_specialist.projects[4]['options'][f'priority_{priority.lower()}'], is_option=True)
                 self.gh_specialist.update_field(4, item_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
                 self.gh_specialist.update_field(4, item_p4, 'hours', task['estimated_hours'])
+                self.gh_specialist.update_field(4, item_p4, 'requester', romaji_name)
                 
                 # Project 3
                 item_p3 = self.gh_specialist.add_to_project(parent_node_id, 3)
@@ -269,6 +270,7 @@ class Orchestrator:
                     self.gh_specialist.update_field(3, item_p3, 'portfolio_project', self.gh_specialist.projects[3]['options']['project_new_dev'], is_option=True)
                     self.gh_specialist.update_field(4, item_p4, 'level', self.gh_specialist.projects[4]['options']['level_parent'], is_option=True)
                     self.gh_specialist.update_field(4, item_p4, 'status', self.gh_specialist.projects[4]['options']['status_to_triage'], is_option=True)
+                    self.gh_specialist.update_field(4, item_p4, 'requester', romaji_name)
 
                     # Phase 2: Sub-issue
                     sub_title = f"Understand the request: {ai_summary} (Sub-issue for #{issue['number']})"
