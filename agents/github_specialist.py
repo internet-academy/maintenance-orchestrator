@@ -158,7 +158,7 @@ class GitHubSpecialist:
         active_tasks = []
         unique_ids = set()
         for p_num in [3, 4]:
-            query = "query($org: String!, $number: Int!) { organization(login: $org) { projectV2(number: $number) { title items(first: 100) { nodes { isArchived fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } } } } content { ... on Issue { id number title url closed assignees(first: 1) { nodes { login } } } ... on PullRequest { id number title url closed assignees(first: 1) { nodes { login } } } } } } } } }"
+            query = "query($org: String!, $number: Int!) { organization(login: $org) { projectV2(number: $number) { title items(first: 100) { nodes { isArchived fieldValues(first: 20) { nodes { ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2Field { name } } } ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2Field { name } } } } } content { ... on Issue { id number title url closed labels(first: 10) { nodes { name } } assignees(first: 1) { nodes { login } } } ... on PullRequest { id number title url closed labels(first: 10) { nodes { name } } assignees(first: 1) { nodes { login } } } } } } } } }"
             r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": {"org": self.org, "number": p_num}})
             data = r.json().get('data', {}).get('organization', {}).get('projectV2', {})
             for item in data.get('items', {}).get('nodes', []):
@@ -170,10 +170,14 @@ class GitHubSpecialist:
                 # Extract Assignee Login safely
                 assignees = content.get('assignees', {}).get('nodes', [])
                 login = assignees[0].get('login') if assignees else None
+                
+                # Extract Labels
+                labels = [l['name'] for l in content.get('labels', {}).get('nodes', [])] if 'labels' in content else []
 
                 active_tasks.append({
                     "id": content['id'], "number": content['number'], "title": content['title'], "url": content['url'],
                     "assignee": login,
+                    "labels": labels,
                     "project_tag": fields.get('Portfolio Project') or fields.get('project') or data.get('title'),
                     "start_date": fields.get('Start date'), "end_date": fields.get('End date'), "hours": float(fields.get('Assigned Hours') or 0.0)
                 })
