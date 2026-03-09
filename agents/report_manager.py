@@ -64,22 +64,22 @@ class ReportManager:
                     if is_completed:
                         # Success: Task was scheduled for last week and is done
                         last_week_results.append([
-                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "〇", ""
+                            "", t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], "〇", ""
                         ])
                     else:
                         # Rollover: Task was scheduled for last week but is NOT done
                         last_week_results.append([
-                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "×", "Delayed - Rolling over"
+                            "", t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], "×", "Delayed - Rolling over"
                         ])
                         # ADD TO NEXT WEEK PLAN (Rollover)
                         next_week_plan.append([
-                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "-", "Rollover"
+                            "", t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], "-", "Rollover"
                         ])
                 else:
                     # Next Week: Deadline is in the upcoming cycle
                     if not is_completed:
                         next_week_plan.append([
-                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "-", ""
+                            "", t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], "-", ""
                         ])
 
             if not self.dry_run:
