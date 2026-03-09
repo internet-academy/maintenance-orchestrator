@@ -21,11 +21,11 @@ class ReportManager:
 
     def generate_thursday_report(self):
         """Automates the Thursday Shift and Sync logic."""
-        print("\nREPORT MANAGER: Starting Thursday Standup Report Sync (TEST RUN ON COPY)...")
+        print("\nREPORT MANAGER: Starting Thursday Standup Report Sync (SANDBOX TEST)...")
         
         workbook = self.ingestor.client.open_by_key(self.sheet_id)
-        wr_tab = workbook.worksheet('Weekly Report')
-        # TARGET THE COPY TAB FOR SAFETY (Point back to live in final)
+        # Use Copy tabs for testing
+        wr_tab = workbook.worksheet('Weekly Report のコピー')
         twr_tab = workbook.worksheet('Tables for Weekly Report のコピー')
         
         all_last_week_tasks = []
