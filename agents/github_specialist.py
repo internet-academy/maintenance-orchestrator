@@ -184,6 +184,30 @@ class GitHubSpecialist:
                 unique_ids.add(content['id'])
         return active_tasks
 
+    def get_subtasks(self, parent_number):
+        """Fetches all sub-issues linked to a specific parent number."""
+        query = """
+        query($org: String!, $repo: String!, $num: Int!) {
+          repository(owner: $org, name: $repo) {
+            issue(number: $num) {
+              subIssues(first: 20) {
+                nodes {
+                  number
+                  title
+                  state
+                }
+              }
+            }
+          }
+        }
+        """
+        vars = {"org": self.org, "repo": "member", "num": parent_number}
+        try:
+            r = requests.post(self.graphql_url, headers=self.headers, json={"query": query, "variables": vars})
+            return r.json().get('data', {}).get('repository', {}).get('issue', {}).get('subIssues', {}).get('nodes', [])
+        except:
+            return []
+
     def get_recent_repo_context(self, repo_name, days=3):
         """Fetches a summary of recent file changes in the repository."""
         since = (datetime.now() - timedelta(days=days)).isoformat()
