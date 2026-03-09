@@ -11,7 +11,6 @@ class ReportManager:
         self.dry_run = dry_run
         self.sheet_id = '1x0IXmY7cSlN2kRyOVRh_ZbdgPHn8bVaqfu5PAiNxs5M'
         
-        # Empirical coordinates from Weekly Report tab (1-based for gspread)
         self.pic_map = {
             "Choo":    {"last": (5, 1),  "next": (12, 1),  "gh": os.getenv('GH_USER_CHOO', 'young-min-choo')},
             "Saurabh": {"last": (5, 10), "next": (12, 10), "gh": os.getenv('GH_USER_SAURABH', 'Saurabh-IA')},
@@ -20,11 +19,18 @@ class ReportManager:
         }
 
     def generate_thursday_report(self):
-        """Automates the Thursday Shift and Sync logic with V3 Formatting."""
-        print("\nREPORT MANAGER: Starting Thursday Standup Report Sync (V3)...")
+        """Automates the Thursday Shift and Sync logic with V4 strictly-dated logic."""
+        print("\nREPORT MANAGER: Starting Thursday Standup Report Sync (V4)...")
         
+        # Calculate Thursday boundaries
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Find this Thursday
+        this_thursday = today + timedelta(days=(3 - today.weekday() + 7) % 7)
+        next_thursday = this_thursday + timedelta(days=7)
+        
+        print(f"  - Logic Reference: This Thursday ({this_thursday.date()}) | Next Thursday ({next_thursday.date()})")
+
         workbook = self.ingestor.client.open_by_key(self.sheet_id)
-        # Sandbox tabs
         wr_tab = workbook.worksheet('Weekly Report のコピー')
         twr_tab = workbook.worksheet('Tables for Weekly Report のコピー')
         
@@ -34,47 +40,49 @@ class ReportManager:
         for name, config in self.pic_map.items():
             print(f"  - Processing {name}...")
             
-            # 1. Analyze what was PLANNED
-            next_row, next_col = config['next']
-            planned_block = wr_tab.get_values(f"{gspread_col(next_col)}{next_row}:{gspread_col(next_col+7)}{next_row+3}")
-            gh_tasks = self._get_v3_gh_tasks(config['gh'])
+            # 1. Fetch ALL parent tasks from GitHub for this user
+            gh_tasks = self._get_v4_gh_tasks(config['gh'])
             
-            # 2. Shift to LAST WEEK
+            # 2. Categorize by Deadline and Status
+            # Last Week = Deadline < This Thursday
+            # Next Week = Deadline >= This Thursday AND < Next Thursday
+            
             last_week_results = []
-            seen_titles = []
-            for row in planned_block:
-                if not any(row) or len(row) < 2 or not row[1].strip(): continue
-                # Match title without the Parent: header if it was nested
-                clean_planned_title = row[1].split(']:')[0].replace('[', '').strip()
-                seen_titles.append(clean_planned_title)
-                
-                match = next((t for t in gh_tasks if clean_planned_title in t['title']), None)
-                if match:
-                    gh_status = self.gh.get_project_item_data(match['number'], 4).get('Status')
-                    row[6] = "〇" if gh_status == "Done" else "×"
-                else:
-                    if row[6] != "〇": row[6] = "×"
-                last_week_results.append(row)
-
-            # 3. Add Surprises (Done but not in plan)
+            next_week_plan = []
+            
+            # Logic: Anything scheduled for 'Next' must be Open. 
+            # Logic: Anything that was scheduled for 'Last' but NOT 'Done' rolls over.
+            
             for t in gh_tasks:
-                if t['clean_title'] not in seen_titles:
-                    gh_status = self.gh.get_project_item_data(t['number'], 4).get('Status')
-                    if gh_status == "Done":
+                deadline_dt = datetime.strptime(t['raw_deadline'], "%Y-%m-%d")
+                status = self.gh.get_project_item_data(t['number'], 4).get('Status')
+                
+                is_completed = (status == "Done")
+                is_last_week_deadline = (deadline_dt < this_thursday)
+                
+                if is_last_week_deadline:
+                    if is_completed:
+                        # Success: Task was scheduled for last week and is done
                         last_week_results.append([
-                            "", "🆕 " + t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "〇", ""
+                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "〇", ""
+                        ])
+                    else:
+                        # Rollover: Task was scheduled for last week but is NOT done
+                        last_week_results.append([
+                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "×", "Delayed - Rolling over"
+                        ])
+                        # ADD TO NEXT WEEK PLAN (Rollover)
+                        next_week_plan.append([
+                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "-", "Rollover"
+                        ])
+                else:
+                    # Next Week: Deadline is in the upcoming cycle
+                    if not is_completed:
+                        next_week_plan.append([
+                            "", t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "-", ""
                         ])
 
-            # 4. Next Week's Plan (All non-Done with Deadlines)
-            next_week_plan = []
-            open_tasks = [t for t in gh_tasks if self.gh.get_project_item_data(t['number'], 4).get('Status') != "Done"]
-            for i, t in enumerate(open_tasks[:4]):
-                next_week_plan.append([
-                    str(i+1), t['full_formatted_title'], "Choo", t['product'], name, t['formatted_deadline'], "-", ""
-                ])
-
             if not self.dry_run:
-                # Update WR Copy Tab
                 self._safe_update_block(wr_tab, config['last'], last_week_results)
                 self._safe_update_block(wr_tab, config['next'], next_week_plan)
 
@@ -84,8 +92,8 @@ class ReportManager:
         self._update_final_tables(twr_tab, all_last_week_tasks, all_next_week_tasks)
         print("REPORT MANAGER: Thursday Sync Complete. ✅")
 
-    def _get_v3_gh_tasks(self, github_user):
-        """Fetches and formats tasks with Parent-Child nesting and Product mapping."""
+    def _get_v4_gh_tasks(self, github_user):
+        """Fetches and formats tasks with V4 rules (No brackets, Strict Product mapping)."""
         all_tasks = self.gh.get_full_active_tasks()
         formatted = []
         for t in all_tasks:
@@ -94,19 +102,18 @@ class ReportManager:
                 if 'error' in [l.lower() for l in t.get('labels', [])] or '[ERROR]' in t['title'].upper(): continue
                 if not t.get('end_date'): continue
                 
-                # 1. Nesting Logic
+                # 1. Nesting Logic (NO BRACKETS)
                 subtasks = self.gh.get_subtasks(t['number'])
                 full_title = t['title']
                 if subtasks:
-                    full_title = f"[{t['title']}]:\n" + "\n".join([f" {i+1}. {s['title']}" for i, s in enumerate(subtasks)])
+                    full_title = f"{t['title']}:\n" + "\n".join([f" {i+1}. {s['title']}" for i, s in enumerate(subtasks)])
                 
                 # 2. Product Mapping
-                repo_url = t.get('url', '')
+                repo_url = t.get('url', '').lower()
                 product = "Other"
                 if "member" in repo_url or "bohr-individual" in repo_url: product = "Bohr Ind"
                 elif "bohr-corporate" in repo_url: product = "Bohr Corp"
                 
-                # Refine Kikuichimonji
                 if "kiku" in t['title'].lower() or "kiku" in t['project_tag'].lower(): product = "Kikuichimonji"
 
                 formatted.append({
@@ -114,6 +121,7 @@ class ReportManager:
                     "clean_title": t['title'].strip(),
                     "full_formatted_title": full_title,
                     "product": product,
+                    "raw_deadline": t['end_date'],
                     "formatted_deadline": self._format_deadline(t.get('end_date')),
                     "title": t['title']
                 })
@@ -126,10 +134,11 @@ class ReportManager:
         except: return date_str
 
     def _safe_update_block(self, tab, coord, data):
-        """Updates a block while clearing old data first."""
         r, c = coord
         tab.update(f"{gspread_col(c)}{r}:{gspread_col(c+7)}{r+3}", [[""]*8]*4)
         if data:
+            # Add indexing
+            for i, row in enumerate(data): row[0] = str(i+1)
             tab.update(f"{gspread_col(c)}{r}:{gspread_col(c+7)}{r+len(data)-1}", data)
 
     def _update_final_tables(self, twr_tab, last_tasks, next_tasks):
@@ -137,8 +146,7 @@ class ReportManager:
         clean_next = [r for r in next_tasks if len(r) > 1 and r[1].strip()]
         
         if self.dry_run:
-            print("\n--- FINAL V3 TABLES PREVIEW ---")
-            for i, r in enumerate(clean_last): print(f"L: {r[1][:30]}...")
+            print("\n--- FINAL V4 TABLES PREVIEW ---")
             return
 
         twr_tab.update("L18:S31", [[""]*8]*14)
