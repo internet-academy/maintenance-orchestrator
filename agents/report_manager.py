@@ -94,37 +94,53 @@ class ReportManager:
         print("REPORT MANAGER: Thursday Sync Complete. ✅")
 
     def _get_filtered_gh_tasks(self, github_user):
-        """Fetches all tasks for a user that are NOT 'Done'."""
+        """Fetches all tasks for a user that are NOT 'Done' and NOT errors."""
         all_tasks = self.gh.get_full_active_tasks()
         filtered = []
         for t in all_tasks:
             if t['assignee'] and t['assignee'].lower() == github_user.lower():
-                # Get full data to check Status
+                # 1. Strict Error Filtering
+                is_error = 'error' in [l.lower() for l in t.get('labels', [])] or '[ERROR]' in t['title'].upper()
+                if is_error: continue
+
+                # 2. Status Check
                 gh_data = self.gh.get_project_item_data(t['number'], 4)
-                if gh_data and gh_data.get('Status') != "Done" and 'error' not in t['labels']:
+                if gh_data and gh_data.get('Status') != "Done":
+                    # 3. Improved Project Tag
+                    tag = t['project_tag']
+                    if tag == "Overall Project Management":
+                        # Attempt to find a better tag from Portfolio Project field
+                        tag = gh_data.get('Portfolio Project') or "Maintenance"
+
+                    t['clean_tag'] = tag
                     filtered.append(t)
         return filtered
 
     def _update_final_tables(self, twr_tab, last_tasks, next_tasks):
+        # Remove empty rows from the sources
+        clean_last = [r for r in last_tasks if len(r) > 1 and r[1].strip()]
+        clean_next = [r for r in next_tasks if len(r) > 1 and r[1].strip()]
+
         if self.dry_run:
-            print(f"\n--- FINAL TABLES PREVIEW ---")
-            print(f"COMPLETED TASKS (Count: {len(last_tasks)}):")
-            for i, r in enumerate(last_tasks): print(f"  {i+1}. {r}")
-            print(f"\nPLANNED TASKS (Count: {len(next_tasks)}):")
-            for i, r in enumerate(next_tasks): print(f"  {i+1}. {r}")
+            print(f"\n--- REFINED FINAL TABLES PREVIEW ---")
+            print(f"COMPLETED TASKS (Count: {len(clean_last)}):")
+            for i, r in enumerate(clean_last): print(f"  {i+1}. {r}")
+            print(f"\nPLANNED TASKS (Count: {len(clean_next)}):")
+            for i, r in enumerate(clean_next): print(f"  {i+1}. {r}")
             return
-            
+
         # Update Last Weeks Results (L18 onwards)
-        last_formatted = [[i+1] + row[1:] for i, row in enumerate(last_tasks)]
+        last_formatted = [[i+1] + row[1:] for i, row in enumerate(clean_last)]
         twr_tab.update("L18:S31", [[""]*8]*14) # Clear
         if last_formatted:
             twr_tab.update(f"L18:S{18+len(last_formatted)-1}", last_formatted)
-            
+
         # Update Next Weeks Results (L36 onwards)
-        next_formatted = [[i+1] + row[1:] for i, row in enumerate(next_tasks)]
+        next_formatted = [[i+1] + row[1:] for i, row in enumerate(clean_next)]
         twr_tab.update("L36:S46", [[""]*8]*11) # Clear
         if next_formatted:
             twr_tab.update(f"L36:S{36+len(next_formatted)-1}", next_formatted)
+
 
 def gspread_col(idx):
     """Helper to convert 1-based index to A, B, C..."""
