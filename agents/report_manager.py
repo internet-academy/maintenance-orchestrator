@@ -75,7 +75,7 @@ class ReportManager:
                     str(i+1), 
                     title, 
                     "Choo", # Default requester
-                    t['project_tag'], 
+                    t.get('clean_tag', t['project_tag']), 
                     name, 
                     deadline
                 ])
