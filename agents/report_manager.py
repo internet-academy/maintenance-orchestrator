@@ -56,7 +56,8 @@ class ReportManager:
                 match = next((t for t in gh_tasks if t['title'].strip() == title), None)
                 if match:
                     # If found on GitHub, check if it's 'Done'
-                    gh_status = self.gh.get_project_item_data(match['number'], 4).get('Status')
+                    gh_item_data = self.gh.get_project_item_data(match['number'], 4)
+                    gh_status = gh_item_data.get('Status') if gh_item_data else "Open"
                     row[6] = "〇" if gh_status == "Done" else "×"
                 else:
                     # If not found on GitHub (deleted/manual), assume manual check or '×'
