@@ -147,7 +147,11 @@ class GitHubSpecialist:
         for item in items:
             content = item.get('content')
             if content and content.get('number') == issue_number:
-                data = {'item_id': item['id'], 'assignee': content.get('assignees', {}).get('nodes', [{}])[0].get('login')}
+                # Extract Assignee safely
+                assignee_nodes = content.get('assignees', {}).get('nodes', [])
+                assignee_login = assignee_nodes[0].get('login') if assignee_nodes else None
+                
+                data = {'item_id': item['id'], 'assignee': assignee_login}
                 for fv in item.get('fieldValues', {}).get('nodes', []):
                     name = fv.get('field', {}).get('name')
                     val = fv.get('text') or fv.get('number') or fv.get('name') or fv.get('date')
