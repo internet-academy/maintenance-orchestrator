@@ -1,8 +1,15 @@
 import requests
+import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def test_real_mention():
-    webhook_url = "https://chat.googleapis.com/v1/spaces/AAAAXcdPfl0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=KtPxcNd14wnTFjomO2kr1Z4oQbTEZ75t_4LYq6m5Q_w"
+    webhook_url = os.getenv('GOOGLE_CHAT_REPORT_WEBHOOK')
+    if not webhook_url:
+        print("Error: GOOGLE_CHAT_REPORT_WEBHOOK not set.")
+        return
     
     today_str = datetime.now().strftime("%Y%m%d")
     thread_key = f"mention_test_{today_str}"

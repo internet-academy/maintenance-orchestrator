@@ -126,16 +126,45 @@ class Orchestrator:
 
         try:
             # 1. Sync GitHub status BACK to Sheet
-            tasks = self.ingestor.get_live_tasks()
+            live_tasks = self.ingestor.get_live_tasks()
             if self.git_sync:
-                sync_stats = self.git_sync.scan_and_sync(tasks)
+                # FIRST: Sync all live tasks to/from the sheet
+                sync_stats = self.git_sync.scan_and_sync(live_tasks)
                 if sync_stats:
                     self.stats["status_syncs"] += sync_stats.get("status_changes", 0)
                     self.stats["healed_links"] += sync_stats.get("healed_links", 0)
                     self.stats["date_syncs"] += sync_stats.get("date_migrations", 0)
+                
+                # SECOND: Global Project-to-Project Date Sync (Ensures P3 <-> P4 consistency)
+                print("GIT: Performing Global Project-to-Project Date Sync...")
+                global_sync_count = 0
+                for t in self.all_active_tasks:
+                    issue_num = t['number']
+                    gh_p4 = self.gh_specialist.get_project_item_data(issue_num, project_number=4)
+                    gh_p3 = self.gh_specialist.get_project_item_data(issue_num, project_number=3)
+                    
+                    if gh_p4 and gh_p3:
+                        p4_start, p4_end = gh_p4.get('Start date'), gh_p4.get('End date')
+                        p3_start, p3_end = gh_p3.get('Start date'), gh_p3.get('End date')
+                        
+                        target_start = p4_start if p4_start else p3_start
+                        target_end = p4_end if p4_end else p3_end
+                        
+                        if target_start and target_end:
+                            if p3_start != target_start or p3_end != target_end:
+                                if not self.dry_run: self.gh_specialist.update_field(3, gh_p3['item_id'], 'start_date', target_start)
+                                if not self.dry_run: self.gh_specialist.update_field(3, gh_p3['item_id'], 'end_date', target_end)
+                                global_sync_count += 1
+                            if p4_start != target_start or p4_end != target_end:
+                                if not self.dry_run: self.gh_specialist.update_field(4, gh_p4['item_id'], 'start_date', target_start)
+                                if not self.dry_run: self.gh_specialist.update_field(4, gh_p4['item_id'], 'end_date', target_end)
+                                global_sync_count += 1
+                if global_sync_count > 0:
+                    print(f"GIT: Successfully mirrored dates for {global_sync_count} project items.")
+                    self.stats["date_syncs"] += global_sync_count
 
             # 2. Process NEW Maintenance Tasks
-            for task in tasks:
+            for task in live_tasks:
                 self.process_task(task)
                 time.sleep(1 if self.dry_run else 2)
             
