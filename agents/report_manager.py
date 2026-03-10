@@ -19,15 +19,22 @@ class ReportManager:
         }
 
     def generate_thursday_report(self):
-        """Automates Standup Sync with Intelligent Task Grouping."""
-        print("\nREPORT MANAGER: Starting Standup Report Sync (SIMULATED 03/06 - WITH GROUPING)...")
+        """Automates the Standup Sync logic with Dynamic Date Boundaries."""
+        print("\nREPORT MANAGER: Starting Standup Report Sync...")
         
-        sim_last_thursday = datetime(2026, 3, 5).replace(hour=0, minute=0, second=0, microsecond=0)
-        sim_next_thursday = datetime(2026, 3, 12).replace(hour=0, minute=0, second=0, microsecond=0)
+        # Friday 9AM JST Logic (Dynamic)
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Boundary: The most recent Thursday
+        days_to_thursday = (today.weekday() - 3) % 7
+        last_thursday = today - timedelta(days=days_to_thursday)
+        next_thursday = last_thursday + timedelta(days=7)
+        
+        print(f"  - Boundaries: Last Cycle <= {last_thursday.date()} | Next Cycle <= {next_thursday.date()}")
 
         workbook = self.ingestor.client.open_by_key(self.sheet_id)
-        wr_tab = workbook.worksheet('Weekly Report のコピー')
-        twr_tab = workbook.worksheet('Tables for Weekly Report のコピー')
+        # LIVE TABS
+        wr_tab = workbook.worksheet('Weekly Report')
+        twr_tab = workbook.worksheet('Tables for Weekly Report')
         
         all_last_week_tasks = []
         all_next_week_tasks = []
@@ -36,13 +43,14 @@ class ReportManager:
             print(f"  - Processing {name}...")
             gh_tasks = self._get_v5_gh_tasks(config['gh'])
             
-            # 1. Analyze PLANNED
+            # 1. Analyze PLANNED (current 'Next' block)
             next_row, next_col = config['next']
             planned_block = wr_tab.get_values(f"{gspread_col(next_col)}{next_row}:{gspread_col(next_col+7)}{next_row+3}")
             
             last_week_results = []
             seen_titles = []
             
+            # A. Process PLANNED (Shift to 'Last')
             for row in planned_block:
                 if not any(row) or len(row) < 2 or not row[1].strip(): continue
                 clean_planned_title = row[1].split(':\n')[0].strip()
@@ -57,34 +65,37 @@ class ReportManager:
                     if row[6] != "〇": row[6] = "×"
                 last_week_results.append(row)
 
-            # 2. Add Surprise Completions
+            # B. Add Surprise Completions (🆕 tag)
             for t in gh_tasks:
                 if t['clean_title'] not in seen_titles:
                     deadline_dt = datetime.strptime(t['raw_deadline'], "%Y-%m-%d")
-                    if deadline_dt <= sim_last_thursday:
+                    if deadline_dt <= last_thursday:
                         gh_item_data = self.gh.get_project_item_data(t['number'], 4)
                         gh_status = gh_item_data.get('Status') if gh_item_data else "Open"
                         if gh_status == "Done":
                             last_week_results.append(["", "🆕 " + t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], "〇", ""])
 
-            # 3. Next Week's Plan (WITH GROUPING)
+            # C. Next Week's Plan
             raw_next_tasks = []
-            # Add Rollovers first
+            # 1. Rollover from '×'
             for row in last_week_results:
                 if row[6] == "×":
-                    raw_next_tasks.append({"title": row[1], "req": row[2], "prod": row[3], "dl_dt": datetime.strptime(row[5].split('(')[0], "%m/%d").replace(year=2026), "dl_str": row[5], "type": "rollover"})
+                    raw_next_tasks.append({"title": row[1], "req": row[2], "prod": row[3], "dl_dt": datetime.strptime(row[5].split('(')[0], "%m/%d").replace(year=today.year), "dl_str": row[5], "type": "rollover"})
             
-            # Add New Open Tasks
+            # 2. Planned Open Tasks (Deadline up to next Thursday)
             for t in gh_tasks:
                 deadline_dt = datetime.strptime(t['raw_deadline'], "%Y-%m-%d")
                 gh_item_data = self.gh.get_project_item_data(t['number'], 4)
                 gh_status = gh_item_data.get('Status') if gh_item_data else "Open"
-                if gh_status != "Done" and sim_last_thursday < deadline_dt <= sim_next_thursday:
+                if gh_status != "Done" and last_thursday < deadline_dt <= next_thursday:
                     if not any(t['clean_title'] in r['title'] for r in raw_next_tasks):
                         raw_next_tasks.append({"title": t['full_formatted_title'], "req": t['requester'], "prod": t['product'], "dl_dt": deadline_dt, "dl_str": t['formatted_deadline'], "type": "new"})
 
-            # GROUPING LOGIC
-            next_week_plan = self._group_tasks(raw_next_tasks, name)
+            # GROUPING: Only group if we have more than 4 tasks total for the block
+            if len(raw_next_tasks) > 4:
+                next_week_plan = self._group_tasks(raw_next_tasks, name)
+            else:
+                next_week_plan = [["", t['title'], t['req'], t['prod'], name, t['dl_str'], "-", ""] for t in raw_next_tasks]
 
             if not self.dry_run:
                 self._safe_update_block(wr_tab, config['last'], last_week_results)
@@ -94,16 +105,12 @@ class ReportManager:
             all_next_week_tasks.extend(next_week_plan)
 
         self._update_final_tables(twr_tab, all_last_week_tasks, all_next_week_tasks)
-        print("REPORT MANAGER: Sync Complete. ✅")
+        print("REPORT MANAGER: Thursday Sync Complete. ✅")
 
     def _group_tasks(self, task_list, pic_name):
-        """Groups related tasks into a single row if they share a product/prefix."""
-        if not task_list: return []
-        
+        """Groups related tasks into a single row."""
         grouped = {}
         for t in task_list:
-            # Create a key based on product and common title prefix
-            # e.g., "Bohr Ind | Bohr Ind Renewal"
             prefix = t['title'].split(':')[0].strip()
             key = f"{t['prod']}|{prefix}"
             if key not in grouped: grouped[key] = []
@@ -113,24 +120,21 @@ class ReportManager:
         for key, members in grouped.items():
             prod, prefix = key.split('|')
             if len(members) > 1:
-                # Group them!
                 sub_items = []
                 for m in members:
-                    # Extract page name from "Prefix: Page Name"
                     parts = m['title'].split(':')
                     name = parts[1].strip() if len(parts) > 1 else m['title']
                     sub_items.append(name.replace('\n', ' ').strip())
-                
                 title = f"{prefix}:\n" + "\n".join([f" {i+1}. {item}" for i, item in enumerate(sub_items)])
                 latest_dl = max(members, key=lambda x: x['dl_dt'])
                 final_rows.append(["", title, members[0]['req'], prod, pic_name, latest_dl['dl_str'], "-", ""])
             else:
                 m = members[0]
                 final_rows.append(["", m['title'], m['req'], m['prod'], pic_name, m['dl_str'], "-", ""])
-        
         return final_rows
 
     def _get_v5_gh_tasks(self, github_user):
+        """Fetches and formats parent tasks with dynamic requester and nesting."""
         all_tasks = self.gh.get_full_active_tasks()
         formatted = []
         for t in all_tasks:
@@ -178,10 +182,14 @@ class ReportManager:
     def _update_final_tables(self, twr_tab, last_tasks, next_tasks):
         clean_last = [r for r in last_tasks if len(r) > 1 and r[1].strip()]
         clean_next = [r for r in next_tasks if len(r) > 1 and r[1].strip()]
+        
         twr_tab.update("L18:S31", [[""]*8]*14)
-        if clean_last: twr_tab.update(f"L18:S{18+len(clean_last)-1}", [[i+1] + r[1:8] for i, r in enumerate(clean_last[:14])])
+        if clean_last:
+            twr_tab.update(f"L18:S{18+len(clean_last)-1}", [[i+1] + r[1:8] for i, r in enumerate(clean_last[:14])])
+            
         twr_tab.update("L36:S46", [[""]*8]*11)
-        if clean_next: twr_tab.update(f"L36:S{36+len(clean_next)-1}", [[i+1] + r[1:8] for i, r in enumerate(clean_next[:11])])
+        if clean_next:
+            twr_tab.update(f"L36:S{36+len(clean_next)-1}", [[i+1] + r[1:8] for i, r in enumerate(clean_next[:11])])
 
 def gspread_col(idx):
     return chr(64 + idx) if idx <= 26 else "A" + chr(64 + idx - 26)
