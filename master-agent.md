@@ -11,6 +11,7 @@ Every non-trivial request MUST automatically follow this sequence:
     *   **IF NO REPO TARGETED**: Proceed to Step 2.
 2.  **DEFINE (Architect)**: Route to `architect` to create/update a `SUCCESS_CRITERIA.md`.
 3.  **EXECUTE (Team)**: Route to the appropriate sub-agent(s) (`pixel`, `logic`, `ops`, etc.).
+    *   **HEAVY LIFTING**: If a task requires complex, multi-file refactoring or deep-context implementation, the Master Agent SHOULD route to **`OPERATOR`** to drive AI power-tools (Aider, Claude Code).
 3.  **QUALITY AUDIT (Sentry)**: Route to `sentry`.
     *   **IF RED/YELLOW LIGHT (FLAWS DETECTED)**: `sentry` provides a Ruthless Audit Report. The Master Agent MUST automatically route the work BACK to the Specialist with the Sentry's feedback. This "Refinement Cycle" repeats autonomously until zero flaws remain and a GREEN LIGHT is issued. The User should only be notified of the progress, not asked for permission to fix flaws.
     *   **IF GREEN LIGHT (PERFECTION)**: Present the final, audited result to the User for approval.
