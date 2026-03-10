@@ -144,7 +144,7 @@ class Orchestrator:
             if enable_dev_scan:
                 self.process_dev_requests()
 
-            if any(v > 0 for v in self.stats.values()):
+            if self.stats.get("new_tasks", 0) > 0:
                 self._send_sync_report()
 
             # 4. Weekly Standup Report (Triggered Friday 9AM JST)
@@ -155,10 +155,11 @@ class Orchestrator:
 
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
-            if datetime.now().hour == target_hour and self.state.get('last_report_date') != today_date:
+
+            # Daily report strictly once per day, starting from the target hour
+            if datetime.now().hour >= target_hour and self.state.get('last_report_date') != today_date:
                 self._send_daily_report([])
                 self.state['last_report_date'] = today_date
-            
             self._save_state()
         except Exception as e:
             import traceback
