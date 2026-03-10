@@ -147,6 +147,12 @@ class Orchestrator:
             if any(v > 0 for v in self.stats.values()):
                 self._send_sync_report()
 
+            # 4. Weekly Standup Report (Triggered Friday 9AM JST)
+            now = datetime.now()
+            if now.weekday() == 4 and 9 <= now.hour < 10:
+                if self.report_mgr:
+                    self.report_mgr.generate_thursday_report()
+
             target_hour = int(os.getenv('REPORT_HOUR', '0')) 
             today_date = datetime.now().strftime("%Y-%m-%d")
             if datetime.now().hour == target_hour and self.state.get('last_report_date') != today_date:
@@ -381,9 +387,13 @@ class Orchestrator:
             name = login_to_name.get((task['assignee'] or "unassigned").lower(), "Unassigned")
             start = task.get('start_date'); end = task.get('end_date')
             url = task.get('url', '#')
-            task_entry = f"• *{task['project_tag']}* <{url}|{task['title']}>"
-            if start: task_entry += f" [{start} → {end}]"
-            if not start or not end: unscheduled.append(f"• *{task['project_tag']}* <{url}|{task['title']}> (@{name})")
+            
+            # Use explicit [TBD] if dates are missing
+            date_display = f" [{start} → {end}]" if (start and end) else " *[TBD - No Deadline]*"
+            task_entry = f"• *{task['project_tag']}* <{url}|{task['title']}>{date_display}"
+            
+            if not start or not end: 
+                unscheduled.append(f"{task_entry} (@{name})")
             else:
                 try:
                     s_dt = datetime.strptime(start, "%Y-%m-%d"); e_dt = datetime.strptime(end, "%Y-%m-%d")
