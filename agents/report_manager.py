@@ -20,16 +20,15 @@ class ReportManager:
 
     def generate_thursday_report(self):
         """Automates the Standup Sync logic with Dynamic Date Boundaries."""
-        print("\nREPORT MANAGER: Starting Standup Report Sync...")
+        print("\nREPORT MANAGER: Starting Friday Standup Report Sync...")
         
-        # Friday 9AM JST Logic (Dynamic)
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        # Boundary: The most recent Thursday
+        # Find the most recent Thursday (relative to Friday run)
         days_to_thursday = (today.weekday() - 3) % 7
         last_thursday = today - timedelta(days=days_to_thursday)
         next_thursday = last_thursday + timedelta(days=7)
         
-        print(f"  - Boundaries: Last Cycle <= {last_thursday.date()} | Next Cycle <= {next_thursday.date()}")
+        print(f"  - Logic boundaries: Last Week <= {last_thursday.date()} | Next Week <= {next_thursday.date()}")
 
         workbook = self.ingestor.client.open_by_key(self.sheet_id)
         # LIVE TABS
@@ -65,22 +64,30 @@ class ReportManager:
                     if row[6] != "〇": row[6] = "×"
                 last_week_results.append(row)
 
-            # B. Add Surprise Completions (🆕 tag)
+            # B. Add Surprise Tasks (🆕 tag)
+            # Include anything due by last_thursday that wasn't in plan
             for t in gh_tasks:
                 if t['clean_title'] not in seen_titles:
                     deadline_dt = datetime.strptime(t['raw_deadline'], "%Y-%m-%d")
                     if deadline_dt <= last_thursday:
                         gh_item_data = self.gh.get_project_item_data(t['number'], 4)
                         gh_status = gh_item_data.get('Status') if gh_item_data else "Open"
-                        if gh_status == "Done":
-                            last_week_results.append(["", "🆕 " + t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], "〇", ""])
+                        res = "〇" if gh_status == "Done" else "×"
+                        last_week_results.append([
+                            "", "🆕 " + t['full_formatted_title'], t['requester'], t['product'], name, t['formatted_deadline'], res, ""
+                        ])
 
             # C. Next Week's Plan
             raw_next_tasks = []
             # 1. Rollover from '×'
             for row in last_week_results:
                 if row[6] == "×":
-                    raw_next_tasks.append({"title": row[1], "req": row[2], "prod": row[3], "dl_dt": datetime.strptime(row[5].split('(')[0], "%m/%d").replace(year=today.year), "dl_str": row[5], "type": "rollover"})
+                    # Parse deadline back to date object for sorting
+                    try:
+                        dl_dt = datetime.strptime(row[5].split('(')[0], "%m/%d").replace(year=today.year)
+                    except:
+                        dl_dt = today + timedelta(days=1)
+                    raw_next_tasks.append({"title": row[1], "req": row[2], "prod": row[3], "dl_dt": dl_dt, "dl_str": row[5], "type": "rollover"})
             
             # 2. Planned Open Tasks (Deadline up to next Thursday)
             for t in gh_tasks:
@@ -105,7 +112,7 @@ class ReportManager:
             all_next_week_tasks.extend(next_week_plan)
 
         self._update_final_tables(twr_tab, all_last_week_tasks, all_next_week_tasks)
-        print("REPORT MANAGER: Thursday Sync Complete. ✅")
+        print("REPORT MANAGER: Sync Complete. ✅")
 
     def _group_tasks(self, task_list, pic_name):
         """Groups related tasks into a single row."""
